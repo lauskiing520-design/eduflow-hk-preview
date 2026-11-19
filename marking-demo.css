@@ -1,0 +1,24 @@
+.markdemo{max-width:1100px;margin:0 auto;padding:32px clamp(16px,4vw,42px) 56px;color:#17334a}
+.markdemo header{margin:30px 0 18px}
+.markdemo h1{font-size:clamp(30px,5vw,46px);margin:.15em 0}
+.markdemo h2{font-size:23px;margin:0}
+.markdemo h3{font-size:18px}
+.markdemo p,.markdemo li,.markdemo label,.markdemo select,.markdemo textarea,.markdemo button{font-size:16px;line-height:1.55}
+.markdemo .demo-note{border-left:3px solid #367a90;padding:8px 14px;background:#eff7f7}
+.demo-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.manuscript,.scores,#studentView,#confirmed{border:1px solid #ccd7de;border-radius:8px;background:#fff;padding:clamp(16px,3vw,30px)}
+.manuscript{background:#fcfaf5}
+.manuscript small{font-size:14px;font-weight:500;margin-left:4px}
+.demo-lines{padding-left:32px}
+.markdemo .demo-lines li{padding:12px 6px;border-bottom:1px solid #d9d8cf;font-family:Georgia,serif;font-size:21px;color:#173761;scroll-margin-top:120px}
+.demo-lines li.selected{background:#ffedbc;outline:2px solid #916c29}
+.score-head,.rubric-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.score-head output{font-weight:700}
+.scores .criterion{border-top:1px solid #d4dfe5;padding:12px 0}
+.scores .criterion p{margin:4px 0 8px}
+.markdemo button,.markdemo select{min-height:42px;padding:6px 12px;border:1px solid #73899b;border-radius:5px;background:white;color:#163249;cursor:pointer}
+.markdemo button:focus-visible,.markdemo select:focus-visible,.markdemo textarea:focus-visible{outline:3px solid #1776be;outline-offset:2px}
+.markdemo .demo-primary{background:#1758a3;color:white;border-color:#1758a3}
+.markdemo textarea{display:block;width:100%;box-sizing:border-box;margin:6px 0 14px;padding:9px;border:1px solid #73899b;border-radius:4px;color:#163249}
+#studentFeedback{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:720px){.demo-columns{grid-template-columns:minmax(0,1fr)}}

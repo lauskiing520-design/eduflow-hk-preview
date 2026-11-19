@@ -1,16 +1,55 @@
 (function(root){
 function normalize(value){return String(value??'').normalize('NFKC').replace(/[−–—﹣]/g,'-').trim()}
+const unitSuffixes=new Map([
+ ["$", ["港元", "港幣", "元"]],
+ ["%", ["%"]],
+ ["°", ["度", "°"]],
+ ["°C", ["°C", "°c", "℃", "攝氏度"]],
+ ["cm", ["cm", "厘米", "公分"]],
+ ["m", ["m", "米", "公尺"]],
+ ["km", ["km", "千米", "公里"]],
+ ["μm", ["μm", "µm", "微米"]],
+ ["cm²", ["cm²", "cm^2", "cm2", "平方厘米", "平方公分"]],
+ ["cm³", ["cm³", "cm^3", "cm3", "立方厘米", "立方公分"]],
+ ["g/cm³", ["g/cm³", "g/cm^3", "g/cm3", "克/立方厘米"]],
+ ["L", ["L", "l", "升", "公升"]],
+ ["g", ["g", "克"]],
+ ["min", ["min", "分鐘"]],
+ ["h", ["h", "小時"]],
+ ["s", ["s", "秒"]],
+ ["ms", ["ms", "毫秒"]],
+ ["年", ["年"]],
+ ["m/s", ["m/s", "米/秒"]],
+ ["km/h", ["km/h", "公里/小時"]],
+ ["倍", ["倍", "×"]],
+ ["人", ["人"]],
+ ["張", ["張"]],
+ ["枝", ["枝"]],
+ ["袋", ["袋"]],
+ ["粒", ["粒"]],
+ ["冊", ["冊"]],
+ ["本", ["本"]],
+ ["個", ["個"]],
+ ["單位", ["單位"]],
+ ["平方單位", ["平方單位"]]
+]);
 function numberAnswer(value,q){
- let text=normalize(value).replace(/\s+/g,'');
+ const raw=String(value??'');
+ if(raw.length>128)return {kind:'invalid'};
+ let text=raw.normalize('NFC').replace(/[！-～]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xfee0)).replace(/[−–—﹣]/g,'-').trim();
  if(!text)return {kind:'blank'};
- text=text.replace(/\\(?:dfrac|tfrac|frac)\{([+-]?\d+)\}\{([+-]?\d+)\}/g,'$1/$2').replace(/^\(([+-]?\d+)\)\/\(([+-]?\d+)\)$/,'$1/$2');
- if(q.variable){const prefix=new RegExp('^'+q.variable+'=','i');text=text.replace(prefix,'')}
- if(q.unit==='$')text=text.replace(/^(?:HK\$|\$)/i,'').replace(/(?:港元|元)$/,'');
- if(q.unit==='%')text=text.replace(/%$/,'');
- if(q.unit==='cm')text=text.replace(/(?:cm|厘米)$/i,'');
- if(q.unit==='s')text=text.replace(/(?:s|秒)$/i,'');
- if(q.unit==='°C')text=text.replace(/(?:°C|攝氏度)$/i,'');
- if(q.unit==='g/cm³')text=text.replace(/(?:g\/cm(?:\^?3)|克\/立方厘米)$/i,'');
+ const equals=text.indexOf('=');
+ if(equals!==-1&&q.variable&&text.slice(0,equals).trim().toLowerCase()===q.variable.toLowerCase())text=text.slice(equals+1).trim();
+ const currency=q.unit==='$'&&/^(?:HK\$|\$)/i.test(text);
+ if(currency){
+  text=text.replace(/^(?:HK\$|\$)\s*/i,'');
+ }else if(q.unit){
+  const suffix=(unitSuffixes.get(q.unit)||[]).find(u=>text.endsWith(u));
+  if(suffix)text=text.slice(0,-suffix.length).trimEnd();
+ }
+ text=text.replace(/^\\(?:dfrac|tfrac|frac)\s*\{\s*([+-]?\d+)\s*\}\s*\{\s*([+-]?\d+)\s*\}$/,'$1/$2')
+  .replace(/^\(\s*([+-]?\d+)\s*\)\s*\/\s*\(\s*([+-]?\d+)\s*\)$/,'$1/$2')
+  .replace(/\s*\/\s*/g,'/');
  if(text.length>40)return {kind:'invalid'};
  let n;
  if(/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text))n=Number(text);
