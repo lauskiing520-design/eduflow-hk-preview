@@ -22,3 +22,23 @@
 .markdemo textarea{display:block;width:100%;box-sizing:border-box;margin:6px 0 14px;padding:9px;border:1px solid #73899b;border-radius:4px;color:#163249}
 #studentFeedback{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:720px){.demo-columns{grid-template-columns:minmax(0,1fr)}}
+.ink-tools{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.ink-tools [aria-pressed="true"]{background:#163b63;color:#fff}
+.ink-tools button:disabled{opacity:.5;cursor:default}
+#paper{width:100%;max-width:500px;display:block;border:1px solid #d6d9d4;background:#fcfaf5}
+#paper.inking{touch-action:none;cursor:crosshair;user-select:none}
+#paper text{font:24px Georgia,serif;fill:#173761}
+#paper rect{fill:transparent;stroke:#d9d8cf}
+#paper .selected rect{fill:#ffedbc;stroke:#916c29}
+#paper path{fill:none;stroke-linejoin:round;stroke-linecap:round}
+#paper .pen{stroke:#ad2629;stroke-width:3}
+#paper .highlight{stroke:#ffe53b;stroke-width:15;opacity:.48}
+#studentPaper{margin-bottom:20px}
+@media print{
+  body:has(#studentView:not([hidden]))>:not(main){display:none!important}
+  .markdemo:has(#studentView:not([hidden]))>:not(#studentView){display:none!important}
+  #studentView button{display:none!important}
+  #studentView{padding:0;border:0}
+  #studentPaper,#studentScore,#breakdown{break-inside:avoid}
+  #paper{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}

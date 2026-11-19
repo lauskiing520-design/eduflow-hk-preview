@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>試改一份答卷｜EduFlow HK</title>
 <link rel="stylesheet" href="site.css?v=20261115-site1">
-<link rel="stylesheet" href="marking-demo.css">
-<script defer src="site-chrome.js?v=20261115-site1"></script><script defer src="marking-demo.js"></script>
+<link rel="stylesheet" href="marking-demo.css?v=ink1">
+<script defer src="site-chrome.js?v=20261115-site1"></script><script defer src="marking-demo.js?v=ink1"></script>
 </head>
 <body data-site-page="assessment">
 <div data-site-header-placeholder></div>
@@ -15,8 +15,13 @@
 <p class="demo-note">虛構答卷及預設 AI 建議。操作只在此頁示範，重新整理會重設。</p>
 <section id="teacherView" aria-label="教師覆核">
 <div class="demo-columns">
-<section class="manuscript" aria-labelledby="scriptTitle"><h2 id="scriptTitle">學生原稿 <small>模擬謄本</small></h2><p>示例學生 A · 第 1 題</p><h3>解方程 3(x − 2) = 12，寫出步驟。</h3><ol class="demo-lines">
-<li id="line1">3x − 6 = 12</li><li id="line2">3x = 12 + 6 = 18</li><li id="line3">x = 9</li></ol></section>
+<section class="manuscript" aria-labelledby="scriptTitle"><h2 id="scriptTitle">學生原稿 <small>模擬謄本</small></h2><p>示例學生 A · 第 1 題</p><h3>解方程 3(x − 2) = 12，寫出步驟。</h3><div class="ink-tools" role="group" aria-label="批註工具">
+<button type="button" data-tool="read" aria-pressed="true">閱覽</button><button type="button" data-tool="pen" aria-pressed="false">紅筆</button><button type="button" data-tool="highlight" aria-pressed="false">螢光筆</button><button type="button" data-tool="erase" aria-pressed="false">擦除筆畫</button><button type="button" id="undo" disabled>復原</button><button type="button" id="clear" disabled>清除批註</button></div>
+<div id="teacherPaper"><svg id="paper" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 205" aria-label="學生解題步驟與老師批註">
+<g id="line1" tabindex="-1" aria-label="第一行，3x − 6 = 12"><rect x="9" y="9" width="382" height="54"/><text x="20" y="45">1.　3x − 6 = 12</text></g>
+<g id="line2" tabindex="-1" aria-label="第二行，3x = 12 + 6 = 18"><rect x="9" y="72" width="382" height="54"/><text x="20" y="108">2.　3x = 12 + 6 = 18</text></g>
+<g id="line3" tabindex="-1" aria-label="第三行，x = 9"><rect x="9" y="135" width="382" height="54"/><text x="20" y="171">3.　x = 9</text></g>
+<g id="inkLayer" aria-hidden="true"></g></svg></div></section>
 <form id="reviewForm" class="scores"><div class="score-head"><h2>逐項覆核</h2><output id="total" aria-live="polite">2 / 3 分</output></div>
 <p>點「對照原稿」查看每項建議引用的作答。</p>
 <div id="rubric"></div>
@@ -24,5 +29,5 @@
 <button type="submit" class="demo-primary">確認評分</button>
 </form></div></section>
 <section id="confirmed" hidden><h2 tabindex="-1">已確認示範評分</h2><p id="confirmedScore"></p><button type="button" class="demo-primary" id="studentButton">查看模擬學生結果</button> <button type="button" id="revise">返回修改評分</button></section>
-<section id="studentView" hidden><h2 tabindex="-1">學生收到的評改</h2><p>示例學生 A · 一元一次方程</p><h3 id="studentScore"></h3><ul id="breakdown"></ul><h3>老師評語</h3><p id="studentFeedback"></p><button type="button" id="back">返回教師畫面</button></section>
+<section id="studentView" hidden><h2 tabindex="-1">學生收到的評改</h2><p>示例學生 A · 一元一次方程</p><h3 id="studentScore"></h3><ul id="breakdown"></ul><h3>老師評語</h3><p id="studentFeedback"></p><h3>批註原稿</h3><div id="studentPaper"></div><button type="button" class="demo-primary" id="printReport">列印評改報告</button> <button type="button" id="back">返回教師畫面</button></section>
 </main><div data-site-footer-placeholder></div></body></html>

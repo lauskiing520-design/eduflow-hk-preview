@@ -16,7 +16,7 @@
     selects.push(select);
     select.addEventListener('change', () => { get('total').textContent = total() + ' / 3 分'; });
     row.querySelector('button').addEventListener('click', () => {
-      document.querySelectorAll('.demo-lines .selected').forEach(line => line.classList.remove('selected'));
+      document.querySelectorAll('#paper .selected').forEach(line => line.classList.remove('selected'));
       const line = get('line' + (index + 1));
       line.classList.add('selected');
       line.tabIndex = -1;
@@ -26,6 +26,9 @@
     get('rubric').append(row);
   });
   function show(view) {
+    get(view === 'studentView' ? 'studentPaper' : 'teacherPaper').append(get('paper'));
+    get('paper').querySelector('.selected')?.classList.remove('selected');
+    if (view !== 'teacherView') selectTool('read');
     ['teacherView','confirmed','studentView'].forEach(id => { get(id).hidden = id !== view; });
     const heading = get(view).querySelector('h2');
     heading.tabIndex = -1;
@@ -48,4 +51,88 @@
   });
   get('revise').addEventListener('click', () => show('teacherView'));
   get('back').addEventListener('click', () => show('confirmed'));
+
+  const paper = get('paper');
+  const ink = get('inkLayer');
+  const history = [];
+  let tool = 'read';
+  let stroke = null;
+  function selectTool(next) {
+    tool = next;
+    paper.classList.toggle('inking', next !== 'read');
+    document.querySelectorAll('[data-tool]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.tool === next));
+    });
+  }
+  function updateButtons() {
+    get('undo').disabled = history.length === 0;
+    get('clear').disabled = ink.children.length === 0;
+  }
+  function remember(nodes) {
+    history.push(nodes);
+    if (history.length > 100) history.shift();
+    updateButtons();
+  }
+  function point(event) {
+    const pt = new DOMPoint(event.clientX,event.clientY).matrixTransform(paper.getScreenCTM().inverse());
+    return {x:Math.round(pt.x*10)/10, y:Math.round(pt.y*10)/10};
+  }
+  function eraseAt(pt) {
+    const hit = new DOMPoint(pt.x, pt.y);
+    for (const path of [...ink.children]) {
+      if (path.isPointInStroke(hit)) path.remove();
+    }
+  }
+  function draw(event) {
+    if (event.pointerId !== stroke?.id) return;
+    const pt = point(event);
+    if (tool === 'erase') {
+      const last = stroke.last || pt;
+      const steps = Math.max(1, Math.ceil(Math.hypot(pt.x-last.x,pt.y-last.y)/2));
+      for (let i=1;i<=steps;i++) eraseAt({x:last.x+(pt.x-last.x)*i/steps, y:last.y+(pt.y-last.y)*i/steps});
+    } else {
+      stroke.points.push(pt.x + ' ' + pt.y);
+      stroke.path.setAttribute('d', 'M' + stroke.points.join(' L'));
+    }
+    stroke.last = pt;
+  }
+  function finish(event) {
+    if (event.pointerId !== stroke?.id) return;
+    if (tool !== 'erase' || ink.children.length !== stroke.before.length) remember(stroke.before);
+    stroke = null;
+    updateButtons();
+  }
+  document.querySelectorAll('[data-tool]').forEach(button =>
+    button.addEventListener('click', () => selectTool(button.dataset.tool)));
+  paper.addEventListener('pointerdown', event => {
+    if (tool === 'read' || stroke || event.button !== 0 || !event.isPrimary) return;
+    event.preventDefault();
+    paper.setPointerCapture(event.pointerId);
+    stroke = {id:event.pointerId, before:[...ink.children], points:[]};
+    if (tool !== 'erase') {
+      const pt = point(event);
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('class',tool);
+      stroke.path = path;
+      stroke.points.push(pt.x+' '+pt.y);
+      ink.append(path);
+    }
+    draw(event);
+  });
+  paper.addEventListener('pointermove', draw);
+  paper.addEventListener('pointerup', event => {draw(event);finish(event);});
+  paper.addEventListener('pointercancel', finish);
+  paper.addEventListener('lostpointercapture', finish);
+  get('undo').addEventListener('click', () => {
+    if (!history.length) return;
+    ink.replaceChildren(...history.pop());
+    updateButtons();
+  });
+  get('clear').addEventListener('click', () => {
+    if (!ink.children.length) return;
+    remember([...ink.children]);
+    ink.replaceChildren();
+    updateButtons();
+  });
+  get('printReport').addEventListener('click', () => window.print());
 })();
