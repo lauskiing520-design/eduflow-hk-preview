@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>密度與浮沉實驗室｜EduFlow HK</title><link rel="stylesheet" href="density-lab.css?v=3adbd6b66b"><script defer src="density-lab.js?v=f64e81f1d9"></script></head>
+<body data-demo="true"><header class="mast"><a id="back" href="science.html">EduFlow HK</a><span>中一科學</span></header>
+<main><div class="intro"><h1>密度與浮沉實驗室</h1><p id="context">改變一個條件，看看試樣在液體中會怎樣移動。</p></div>
+<p id="status" role="status" aria-live="polite"></p><div id="desk" hidden></div>
+<section id="lab" hidden>
+ <div class="bench"><section class="controls"><h2>設定試驗</h2>
+ <form id="setup"><label>試樣材料<select name="material"><option value="wood">木塊</option><option value="ice">冰塊</option><option value="plastic">塑膠樣本</option><option value="aluminium">鋁塊</option></select></label>
+ <label>試樣體積<select name="volume"><option>20</option><option selected>40</option><option>60</option><option>80</option><option>100</option></select> cm³</label>
+ <label>液體<select name="liquid"><option value="water">水</option><option value="oil">油</option><option value="brine">鹽水</option></select></label>
+ <label>放手後，我預測試樣會<select name="prediction" required><option value="">選擇預測</option><option value="float">上浮</option><option value="suspend">懸浮</option><option value="sink">下沉</option></select></label>
+ <button type="submit">放手並記錄</button></form></section>
+ <section class="station" aria-label="試樣釋放與模擬量度"><div class="station-head"><h2>觀察窗</h2><span id="liquidLabel"></span></div>
+ <div id="beaker" aria-hidden="true"><div id="fluid"></div><div class="marks"></div><div id="sample"></div></div>
+ <p id="result" role="status">試樣已放在液面下。先作預測，再放手觀察。</p>
+ <dl class="readings"><div><dt>試樣體積</dt><dd id="v">—</dd></div><div><dt>試樣質量</dt><dd id="m">—</dd></div><div><dt>靜止時排液體積</dt><dd id="disp">—</dd></div></dl>
+ </section></div>
+ <section class="records"><h2>我的觀察記錄</h2><p>至少做兩次只改變一個條件的試驗，例如保持材料和體積相同，只換液體。</p><div id="rows" aria-live="polite"></div><button id="undoTrial" type="button" class="secondary" hidden>撤回上一次記錄</button>
+ <label class="conclusion">我的結論<textarea id="conclusion" rows="3" maxlength="2000" placeholder="比較第幾次和第幾次？哪個條件改變了？量度結果如何支持你的解釋？"></textarea></label>
+ <div class="actions"><button id="save" type="button" class="secondary">保存記錄</button><button id="submit" type="button" hidden>提交給老師</button><button id="reload" type="button" class="secondary" hidden>讀取伺服器版本</button></div></section>
+ <details class="model"><summary>查看模型條件與計算方法</summary>
+ <p>本實驗使用固定密度的均勻試樣，體積以 cm³、質量以 g 計。木塊為 0.60、冰為 0.92、塑膠樣本為 1.00、鋁為 2.70 g/cm³。水為 1.00、油為 0.90、鹽水為 1.20 g/cm³。這些數值代表本次模擬的樣本。</p>
+ <p>質量 = 密度 × 體積。試樣密度小於液體時會上浮，靜止時排開的液體質量等於試樣質量；密度相等時可懸浮，大於液體時會下沉。完全浸沒的試樣排開與自己相同的體積。假設容器足夠大，忽略溶解、融化及表面張力。</p></details>
+ </section></main></body></html>

@@ -17,7 +17,8 @@ function maxQuestion(q){return q.criteria.reduce((n,c)=>n+c.max,0)}
 const libraryFilters=[
  ['bank','全部試卷',()=>true],
  ['math','數學',p=>p.subject==='數學'],
- ['science','科學',p=>p.subject==='科學']
+ ['science','科學',p=>p.subject==='科學'],
+ ...[['chinese','中國語文'],['english','英國語文'],['ict','資訊科技']].map(([id,label])=>[id,label,p=>p.subject===label])
 ];
 let libraryBack='papers';
 function hub(filter='bank'){
@@ -34,18 +35,8 @@ function hub(filter='bank'){
 function keyContent(p){return `<section class="teacher-key"><h2>教師參考答案及評分準則</h2><p>接受等值方法及合理文字表達；以下不是逐字匹配的短答答案。</p>${p.questions.map((q,i)=>`<details><summary>第 ${i+1} 題 · ${maxQuestion(q)} 分</summary><p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>`<li>${esc(c.label)}（${c.max} 分；${c.mode==='auto'?'可按客觀答案比對':'教師覆核'}）</li>`).join('')}</ul></details>`).join('')}</section>`}
 function printablePaperPage(p){return `${heading('列印空白試卷',paperName(p),'paper/'+p.id,'返回試卷預覽')}<div class="page-actions"><button type="button" class="button primary" data-action="print-paper">列印空白試卷</button></div><article class="print-paper"><header><p>${esc(p.year)}${esc(p.subject)} · ${p.questions[0]?.source?.type==='adapted'?esc(p.description):'試卷'}</p><h2>${esc(p.title)}</h2><p>${p.questions.length} 題，共 ${C.totalMax(p)} 分，建議 ${p.minutes} 分鐘</p>${sourceCredit(p)}<p class="print-candidate">姓名：_______________　班別：_______　日期：_______</p></header>${p.questions.map((q,i)=>`<section class="paper-question"><h3>${i+1}. ${esc(q.prompt)} <small>（${maxQuestion(q)} 分）</small></h3>${sourceLocator(p,q)}${questionFigure(q)}${q.kind==='choice'?`<ol type="A">${q.options.map(v=>`<li>${esc(v)}</li>`).join('')}</ol>`:`<div class="paper-answer-space ${q.working||q.kind==='text'?'tall':''}"></div>`}</section>`).join('')}</article>`}
 
-function sourceCredit(p){
- if(!p.attribution)return '';
- const src=p.questions[0].source;
- const license=src.licenseUrl?.startsWith('https://')?` <a href="${esc(src.licenseUrl)}">${esc(src.license)}</a>`:'';
- return `<p class="field-note">${esc(p.attribution)}${license}</p>`;
-}
-function sourceLocator(p,q){
- if(!p.attribution||!q.source?.reference?.startsWith('https://'))return '';
- const src=q.source;
- const locator=src.item||('第一冊 · 練習 '+src.exercise);
- return `<small class="field-note"><a href="${esc(src.reference)}">原題出處 · ${esc(locator)}</a></small>`;
-}
+const sourceCredit = window.EduFlowSources.credit;
+function sourceLocator(p,q){return window.EduFlowSources.locator(q)}
 function sheetQuestion(p,q,i){return `<article class="paper-screen-question" id="preview-question-${i}"><div class="paper-question-meta"><strong>第 ${i+1} 題</strong><span>${q.kind==='choice'?'選擇題':q.working?'計算與步驟':'短答題'} / ${maxQuestion(q)} 分</span></div><div class="sheet-problem"><h3>${esc(q.prompt)}</h3>${questionFigure(q)}</div>${sourceLocator(p,q)}${q.kind==='choice'?`<ol type="A">${q.options.map(v=>`<li>${esc(v)}</li>`).join('')}</ol>`:''}</article>`}
 function paperPage(p){
  return `<div class="teacher-sheet"><a class="sheet-back" href="#${libraryBack}">返回試卷列表</a>
