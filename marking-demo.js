@@ -40,7 +40,15 @@
     show('confirmed');
   });
   get('studentButton').addEventListener('click', () => {
-    get('studentScore').textContent = '本題得分 ' + total() + ' / 3 分';
+    const current = total();
+    const previous = 1;
+    get('studentScore').textContent = '本題得分 ' + current + ' / 3 分';
+    get('previousScore').textContent = previous + ' / 3 分';
+    get('currentScore').textContent = current + ' / 3 分';
+    const difference = current - previous;
+    get('progressChange').textContent = difference === 0
+      ? '兩次練習得分相同。'
+      : '今次比上次' + (difference > 0 ? '多' : '少') + '得 ' + Math.abs(difference) + ' 分。';
     get('breakdown').replaceChildren(...criteria.map((item, i) => {
       const li = document.createElement('li');
       li.textContent = item.title + '：' + selects[i].value + ' / 1 分';
@@ -50,7 +58,7 @@
     show('studentView');
   });
   get('revise').addEventListener('click', () => show('teacherView'));
-  get('back').addEventListener('click', () => show('confirmed'));
+  get('back').addEventListener('click', () => show('teacherView'));
 
   const paper = get('paper');
   const ink = get('inkLayer');

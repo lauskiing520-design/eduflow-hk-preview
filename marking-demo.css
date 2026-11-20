@@ -21,6 +21,10 @@
 .markdemo .demo-primary{background:#1758a3;color:white;border-color:#1758a3}
 .markdemo textarea{display:block;width:100%;box-sizing:border-box;margin:6px 0 14px;padding:9px;border:1px solid #73899b;border-radius:4px;color:#163249}
 #studentFeedback{white-space:pre-wrap;overflow-wrap:anywhere}
+.demo-topic-progress{margin:1.5rem 0;border-block:1px solid #ccd7de;padding:.25rem 0;break-inside:avoid}
+.demo-topic-progress dl{display:flex;flex-wrap:wrap;gap:1rem 3rem;margin:1rem 0}
+.demo-topic-progress dt{color:#475d71}
+.demo-topic-progress dd{margin:.2rem 0 0;font-size:1.25rem;font-weight:650;font-variant-numeric:tabular-nums}
 @media(max-width:720px){.demo-columns{grid-template-columns:minmax(0,1fr)}}
 .ink-tools{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
 .ink-tools [aria-pressed="true"]{background:#163b63;color:#fff}
