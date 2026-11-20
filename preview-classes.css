@@ -12,6 +12,9 @@
 .sample-room-option small{display:block;font-size:.9rem;color:#465a70}
 .sample-due{display:grid;gap:.35rem;justify-items:start}
 .sample-due input{font:inherit;font-weight:400;color:inherit;padding:.45rem .75rem;border:1px solid #a5b6c7;border-radius:6px;min-height:44px;min-width:11rem}
+.sample-paper-picker{display:grid;gap:.5rem;font-size:1rem;font-weight:600;min-width:0}
+.sample-paper-picker select{width:100%;min-width:0;min-height:44px;padding:.55rem .7rem;border:1px solid #a5b6c7;border-radius:6px;background:white;color:inherit;font:inherit;font-weight:400}
+.sample-class-head .actions{margin:0}
 .sample-assignment .actions{margin:0}
 .sample-rooms{display:grid;gap:1rem;max-width:58rem}
 .sample-class-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem 1rem}
