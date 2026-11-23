@@ -1,0 +1,42 @@
+body{margin:0;background:#f5f8fb;color:#18364f;font:1rem/1.65 var(--site-font)}
+.comparison{max-width:1080px;margin:auto;padding:28px clamp(16px,4vw,48px) 48px}
+.comparison *{box-sizing:border-box}
+.comparison [hidden]{display:none!important}
+.comparison a{color:#2059a9;text-underline-offset:.2em}
+.comparison .intro{margin:24px 0}
+.comparison .intro p,.comparison .context{margin:0;color:#435d74}
+.comparison h1{margin:3px 0 6px;font-size:clamp(1.8rem,3.7vw,2.6rem);line-height:1.25}
+.comparison h2{margin:0;font-size:1.35rem;line-height:1.5}
+.comparison h3{font-size:1rem;margin:24px 0 8px}
+.comparison .workspace{display:grid;grid-template-columns:minmax(0,0.95fr) minmax(0,1.05fr);gap:clamp(16px,2.6vw,32px);align-items:start}
+.comparison .source,.comparison .review{padding:clamp(18px,2.6vw,30px);background:white;border:1px solid #c9d6e1;border-radius:8px}
+.comparison .context{font-size:.95rem}
+.comparison .source p:not(.context){margin:10px 0 0}
+.comparison .working{list-style:decimal-leading-zero;padding:0 0 0 2.6rem;background:#f4f7fb;border-radius:4px}
+.comparison .working li{padding:11px 7px;font:500 1.05rem/1.6 var(--site-font);font-variant-numeric:tabular-nums;border-bottom:1px solid #dbe3ea}
+.comparison .working li:last-child{border:0}
+.comparison .working li::marker{font-size:.78rem;color:#556a7d}
+.comparison .obscured{display:inline-block;color:#526173;font-size:.92rem;border-bottom:1px dashed}
+.comparison .review>form>p,.comparison .review>section>p{margin:5px 0 15px}
+.comparison fieldset{border:0;padding:0;margin:0;min-width:0}
+.comparison #criteria{margin:10px 0 18px}
+.comparison .criterion{padding:11px 0;border-top:1px solid #dae3ec;display:grid;align-items:center;grid-template-columns:1fr auto;gap:12px}
+.comparison select,.comparison button{font:inherit;padding:8px 12px;border:1px solid #8da2b8;border-radius:5px;background:white;color:inherit;min-height:42px}
+.comparison .prior label{display:inline-flex;align-items:center;min-height:44px;margin-right:15px}
+.comparison .prior legend,.comparison .criterion label{font-weight:600}
+.comparison .prior small{display:block;color:#52677b}
+.comparison input[type=radio]{width:1rem;height:1rem;margin:0 6px 0 0}
+.comparison button{cursor:pointer}
+.comparison .primary{background:#2059ad;color:white;border-color:#2059ad}
+.comparison :focus-visible{outline:3px solid #1e60be;outline-offset:3px}
+.comparison #progress,.comparison .scope{font-size:.94rem;color:#435d74}
+.comparison #progress{margin:12px 0}
+.comparison #summary{background:#edf4fb;border-left:3px solid #4b82bd;padding:8px 12px}
+.comparison #differences{list-style:none;padding:0}
+.comparison #differences li{padding:12px 0;border-top:1px solid #dae3ec}
+.comparison #differences strong,.comparison #differences small{display:block}
+.comparison #differences small{font-size:.94rem;color:#435d74}
+.comparison #differences .flag{color:#84500c}
+.comparison .scope{margin:22px 0 0}
+@media(max-width:740px){.comparison .workspace{grid-template-columns:1fr}.comparison{padding-top:16px}.comparison .intro{margin:16px 0}.comparison .working{margin-bottom:0}}
+@media(max-width:380px){.comparison .criterion{grid-template-columns:1fr;gap:5px}.comparison select{justify-self:start}}

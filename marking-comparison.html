@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>教師與 AI 對評｜EduFlow HK</title>
+<link rel="stylesheet" href="site.css?v=20261115-site1">
+<link rel="stylesheet" href="marking-comparison.css?v=348ae128e8">
+<script defer src="site-chrome.js?v=408defd1fe"></script>
+<script defer src="marking-comparison.js?v=742e0975de"></script>
+</head>
+<body data-site-page="assessment">
+<div data-site-header-placeholder></div>
+<main id="main-content" class="comparison">
+  <a class="back" href="schools.html#try">返回學校試用</a>
+  <header class="intro">
+    <p>中二數學 · 百分法</p>
+    <h1>教師與 AI 對評</h1>
+    <p>先根據學生的算式獨立給分，再逐項查看 AI 建議和兩者的差異。</p>
+  </header>
+  <div class="workspace">
+    <article class="source" aria-labelledby="source-title">
+      <p class="context">示例答卷 · 第 1 題</p>
+      <h2 id="source-title">折後售價與盈利率</h2>
+      <p>背包的成本是 240 元，標價是 360 元。店舖以八折售出。求實際售價、盈利及盈利佔成本的百分比，並寫出算式。</p>
+      <h3>學生作答謄本</h3>
+      <ol class="working" aria-label="學生作答，按原稿行序">
+        <li>360 × 0.8 = 288 元</li>
+        <li>288 − 240 = 48 元</li>
+        <li>盈利率 = 48 ÷ 288 × 100%</li>
+        <li>改：<span class="obscured">塗改處難以辨認</span> %</li>
+      </ol>
+    </article>
+    <div class="review">
+      <noscript>請啟用 JavaScript 填寫評分和查看對照。</noscript>
+      <form id="mark-form" hidden>
+        <h2>你的逐項評分</h2>
+        <p>每項 1 分。若無法辨清作答，可選「無法判讀」。</p>
+        <div id="criteria"></div>
+        <fieldset class="prior">
+          <legend>評分前，你看過這份答卷的 AI 建議嗎？</legend>
+          <label><input type="radio" name="exposure" value="unseen" required> 未看過</label>
+          <label><input type="radio" name="exposure" value="seen" required> 看過</label>
+          <small id="repeat-note" hidden>你已在這個瀏覽器看過本例的建議。</small>
+        </fieldset>
+        <p id="progress" role="status"></p>
+        <button type="submit" class="primary">確認評分，查看對照</button>
+      </form>
+      <section id="report" aria-labelledby="report-title" hidden>
+        <h2 id="report-title" tabindex="-1">逐項對照結果</h2>
+        <p id="basis"></p>
+        <p id="summary"></p>
+        <ol id="differences"></ol>
+        <button type="button" id="retry">重新試評這份示例</button>
+      </section>
+    </div>
+  </div>
+  <p class="scope">此頁使用虛構答卷及預設 AI 建議，不會上傳資料。試評記錄只保存在目前的瀏覽器。</p>
+  <p id="storage-warning" role="status" hidden>目前無法儲存到瀏覽器，離開後會失去這次試評。</p>
+</main>
+<div data-site-footer-placeholder></div>
+</body>
+</html>
