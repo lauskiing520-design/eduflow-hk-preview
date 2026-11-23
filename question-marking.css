@@ -1,0 +1,17 @@
+.queue-page{max-width:70rem;margin:0 auto;padding:2rem clamp(1rem,4vw,3rem) 4rem;color:#18344d;font:1.05rem/1.65 system-ui,sans-serif}
+.queue-page *{box-sizing:border-box}.queue-page header{margin:1.4rem 0}.queue-page h1{font-size:clamp(1.8rem,4vw,2.5rem);margin:0}
+.queue-page h2{font-size:1.3rem;line-height:1.55}.queue-page h3{font-size:1.1rem}.queue-page a{color:#1858a4}
+.queue-tools,.score{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem 1.4rem}
+.queue-tools{padding:1rem 0;border-block:1px solid #cad7df}.queue-tools label{display:flex;align-items:center;gap:.6rem}.queue-tools #count{margin-left:auto}
+.queue-page select,.queue-page textarea{font:inherit;color:inherit;border:1px solid #92a8b8;background:white;padding:.4rem .55rem;border-radius:.35rem;min-height:2.75rem}
+.queue-spread{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);margin-top:1.25rem;border:1px solid #ccd8e2;border-radius:.6rem;overflow:hidden}
+.script-side,.rubric-side{padding:clamp(1rem,2.6vw,2rem)}.script-side{background:#f5f8fa}.rubric-side{background:white}.queue-spread h2{margin:0 0 1rem}
+.script-side img{display:block;max-width:100%;width:18rem;max-height:12rem;object-fit:contain;margin:1rem auto}.script-side h3{border-top:1px solid #ccd8e2;padding-top:1.4rem}
+#working{padding:.5rem 1rem;background:white;border-left:3px solid #6489ae}#working p{margin:.5rem 0;overflow-wrap:anywhere}
+.rubric-side details{margin-bottom:1rem}.rubric-side summary{color:#1858a4;cursor:pointer}
+#points label{display:flex;gap:1rem;align-items:center;justify-content:space-between;border-top:1px solid #d6e1ea;padding:.65rem 0}#points select{flex-shrink:0}
+.rubric-side textarea{width:100%;margin-top:.3rem}.score{justify-content:space-between;padding:.8rem 0}
+.queue-page button{min-height:2.75rem;padding:.5rem 1rem;font:inherit;border:1px solid #809ab0;color:#16416c;background:white;border-radius:.35rem;cursor:pointer}
+.queue-page button.primary{background:#205bbc;color:white;border-color:#205bbc;width:100%}.queue-page :focus-visible{outline:3px solid #2274d5;outline-offset:2px}
+.results li{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid #d6e1ea;gap:.7rem}.results ul{padding:0}.queue-page [hidden]{display:none}
+@media(max-width:43rem){.queue-spread{grid-template-columns:1fr}.queue-tools label{width:100%;justify-content:space-between}.queue-tools #count{margin-left:0}.queue-page{padding-top:1rem}}

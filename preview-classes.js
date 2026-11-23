@@ -1,6 +1,6 @@
 'use strict';
 /* Class assignment on the public, static preview. All class and pupil counts are examples. */
-window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuestion, sourceCredit, onRecordsChange}) {
+window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuestion, sourceCredit, syncPapers, onRecordsChange}) {
   const rooms = [
     {id:'1a', name:'中一 A 班', year:'中一', pupils:26},
     {id:'1b', name:'中一 B 班', year:'中一', pupils:25},
@@ -8,6 +8,8 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     {id:'2b', name:'中二 B 班', year:'中二', pupils:26}
   ];
   const storeKey = 'eduflow-hk-preview:class-assignments:v1';
+  const recordPrefix = 'eduflow-hk-preview:assignment:v2:';
+  const dueDrafts = new Map();
   const paperById = new Map(papers.map(p => [p.id, p]));
   const roomById = new Map(rooms.map(r => [r.id, r]));
   let records = [], persistent = true;
@@ -18,10 +20,18 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
       (row.due === '' || /^\d{4}-\d{2}-\d{2}$/.test(row.due));
   }
   function read() {
+    syncPapers();
     if (!persistent) return;
     try {
       const raw = JSON.parse(localStorage.getItem(storeKey) || '[]');
-      records = Array.isArray(raw) ? raw.filter(validRecord) : [];
+      const merged = new Map();
+      const add = row => { if(validRecord(row)) merged.set(detailRoute(row),row); };
+      if(Array.isArray(raw)) raw.forEach(add);
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith(recordPrefix)) continue;
+        try { add(JSON.parse(localStorage.getItem(key))); } catch { continue; }
+      }
+      records = Array.from(merged.values());
     } catch { persistent = false; }
   }
   function note() {
@@ -40,7 +50,7 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     }).join('');
     const fromRoom = selected.id === roomId;
     return heading('派給班級',note(),fromRoom?'class-papers/'+selected.id:'paper/'+p.id,fromRoom?'返回班級選卷':'返回試卷預覽')+
-      `<form id="sample-assignment" class="sample-assignment" data-paper="${esc(p.id)}">
+      `<p><a id="class-preflight" href="#preflight/${esc(p.id)}/${selected.id}">查看出卷前檢查</a></p><form id="sample-assignment" class="sample-assignment" data-paper="${esc(p.id)}">
       <header><p>${esc(p.year)} · ${esc(p.subject)} · ${p.questions.length} 題</p><h2>${esc(p.title)}</h2></header>
       <fieldset><legend>派給哪一班？</legend><div class="sample-room-options">${options}</div></fieldset>
       <label class="sample-due">截止日期（選填）<input type="date" name="due"></label>
@@ -115,8 +125,18 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
   }
   function restoreDue(form) {
     const row = existing(form);
-    form.elements.due.value = row?.due || '';
+    const room = form.elements.room.value;
+    form.elements.due.value = dueDrafts.get(form.dataset.paper+'/'+room) ?? row?.due ?? '';
+    document.getElementById('class-preflight').href='#preflight/'+form.dataset.paper+'/'+room;
     updateSubmit(form);
+  }
+  document.addEventListener('click', event => {
+    if (!event.target.closest('#class-preflight')) return;
+    const form = document.getElementById('sample-assignment');
+    dueDrafts.set(form.dataset.paper+'/'+form.elements.room.value,form.elements.due.value);
+  });
+  function carryDue(from,to,room) {
+    if(dueDrafts.has(from+'/'+room)) dueDrafts.set(to+'/'+room,dueDrafts.get(from+'/'+room));
   }
   document.addEventListener('submit', event => {
     const form = event.target;
@@ -133,7 +153,8 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     if (!validRecord(row) || !form.reportValidity()) return;
     if (existing(form)?.due===row.due) { location.hash=detailRoute(row); return; }
     records = [row,...records.filter(x => x.room!==row.room || x.paper!==row.paper)];
-    try { localStorage.setItem(storeKey,JSON.stringify(records)); persistent=true; } catch { persistent=false; }
+    try { localStorage.setItem(recordPrefix+row.room+'/'+row.paper,JSON.stringify(row)); persistent=true; } catch { persistent=false; }
+    dueDrafts.delete(row.paper+'/'+row.room);
     location.hash = detailRoute(row);
   });
   function route(view,key,num) {
@@ -153,8 +174,8 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     if (['classes','sample-student','sample-paper','sample-homework'].includes(view)) onRecordsChange();
   }
   window.addEventListener('storage',event=>{
-    if (event.key===storeKey || event.key===null) refreshRecords();
+    if (event.key===storeKey || event.key?.startsWith(recordPrefix) || event.key===null) refreshRecords();
   });
   window.addEventListener('pageshow',event=>{ if(event.persisted) refreshRecords(); });
-  return {route,restoreDue};
+  return {route,restoreDue,carryDue,registerPaper(paper){paperById.set(paper.id,paper)}};
 };
