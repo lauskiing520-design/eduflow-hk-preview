@@ -8,7 +8,7 @@ const trialPreflight=createPreviewPreflight(AssessmentData.papers,esc);
 const trialBank=createPreviewQuestionBank(AssessmentData.papers);
 const trialReport=createPreviewAnswerReport(AssessmentData.papers,esc);
 const papers=[...AssessmentData.papers];
-function questionFigure(q){return q.diagram&&/^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram)?`<figure class="question-figure"><img src="${q.diagram}" alt="${esc(q.diagramAlt||'幾何示意圖')}"><figcaption>示意圖，不按比例繪製；以題目所列條件為準。</figcaption></figure>`:''}
+function questionFigure(q){return q.diagram&&/^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram)?`<figure class="question-figure"><img src="${q.diagram}" alt="${esc(q.diagramAlt||'幾何示意圖')}"><figcaption>${esc(q.diagramCaption||'示意圖，不按比例繪製；以題目所列條件為準。')}</figcaption></figure>`:''}
 
 function getPaper(id){return papers.find(p=>p.id===String(id||'').split('~')[0])}
 
@@ -50,7 +50,7 @@ function paperPage(p,room){
  ${sourceCredit(p)}<div class="sheet-body"><aside><h2>試題目錄</h2><nav class="paper-index" aria-label="試卷題目">${p.questions.map((q,i)=>`<a href="#paper/${esc(p.id)}" data-action="jump-paper-question" data-index="${i}">${i+1}</a>`).join('')}</nav></aside><section class="paper-screen-questions" aria-label="試題預覽">${p.questions.map((q,i)=>sheetQuestion(p,q,i)).join('')}</section></div></div>`;
 }
 
-const previewClasses=createPreviewClasses({papers,esc,href,heading,sheetQuestion,sourceCredit,syncPapers,onRecordsChange:render});
+const previewClasses=createPreviewClasses({papers,esc,href,heading,sheetQuestion,sourceCredit,syncPapers,hasReport:trialReport.eligible,onRecordsChange:render});
 function registerPaper(copy){if(!getPaper(copy.id)){papers.push(copy);previewClasses.registerPaper(copy)}}
 function syncPapers(){
  trialBank.sync(p=>{trialPreflight.addSource(p);registerPaper(p)});
@@ -91,8 +91,8 @@ function render(){
  else if(view==='marking'){location.replace('marking-demo.html');return}
  else {[title,html]=retiredRoute(view,key,p);activeTab=''}
  $('#assessmentApp').innerHTML=html;
- if(view==='question-bank')trialBank.mount($('#question-bank'),paper=>{syncPapers();location.hash='paper/'+paper.id},key==='equations');
- if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p);
+ if(view==='question-bank')trialBank.mount($('#question-bank'),paper=>{syncPapers();location.hash='paper/'+paper.id},key,num);
+ if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p,questionFigure);
  if(view==='preflight'&&p) trialPreflight.mount(p,room,copy=>{registerPaper(copy);previewClasses.carryDue(p.id,copy.id,room)});
  const assignmentForm=$('#sample-assignment');
  if(assignmentForm)previewClasses.restoreDue(assignmentForm);

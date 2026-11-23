@@ -13,6 +13,11 @@
 .trial-index span {font-size:16px;line-height:1.55}
 .trial-index .trial-action {font-size:15px;color:#1954ad;text-decoration:underline;text-underline-offset:4px}
 .trial-subjects {background:#f5f8fa}
+.trial-pairs {padding:0;margin:0;list-style:none}
+.trial-pairs li {border-top:1px solid #c7d5e3;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0;flex-wrap:wrap}
+.trial-pairs h3 {margin:0 0 4px;font-size:20px}
+.trial-pairs p {margin:0;color:#425c70}
+.trial-links {display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .trial-policy {padding:28px 0 52px}
 .trial-policy p {max-width:74ch}
 .trial-policy summary {cursor:pointer;font-size:18px;font-weight:650}

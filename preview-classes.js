@@ -1,6 +1,6 @@
 'use strict';
 /* Class assignment on the public, static preview. All class and pupil counts are examples. */
-window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuestion, sourceCredit, syncPapers, onRecordsChange}) {
+window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuestion, sourceCredit, syncPapers, hasReport, onRecordsChange}) {
   const rooms = [
     {id:'1a', name:'中一 A 班', year:'中一', pupils:26},
     {id:'1b', name:'中一 B 班', year:'中一', pupils:25},
@@ -93,7 +93,7 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     return heading('已派給'+room.name,note(),'classes','班級與作業')+
       `<section class="sample-assignment"><header><p>${room.name} · ${esc(p.subject)}</p><h2>${esc(p.title)}</h2></header>
       <p>${p.questions.length} 題 · ${esc(dueLabel(row))}</p>
-      <div class="actions">${href('sample-student/'+room.id,'查看學生收到的作業',true)}<a class="button" href="paper-receipt.html?room=${room.id}&amp;paper=${encodeURIComponent(p.id)}">列印答題紙及收件</a>${p.year==='中一'&&p.subject==='數學'?href('sample-analysis/'+p.id+'/'+room.id,'看本卷的示例錯答'):''}${href('assign/'+p.id+'/'+room.id,'更改截止日期')}</div></section>`;
+      <div class="actions">${href('sample-student/'+room.id,'查看學生收到的作業',true)}<a class="button" href="paper-receipt.html?room=${room.id}&amp;paper=${encodeURIComponent(p.id)}">列印答題紙及收件</a>${hasReport(p)?href('sample-analysis/'+p.id+'/'+room.id,'看本卷的示例錯答'):''}${href('assign/'+p.id+'/'+room.id,'更改截止日期')}</div></section>`;
   }
   function student(roomId) {
     const room = roomById.get(roomId);

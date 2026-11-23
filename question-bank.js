@@ -1,11 +1,29 @@
 (() => {
   'use strict';
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const variants = () => window.EduEquationVariants;
+  const generators = [window.EduEquationVariants,window.EduPercentageVariants,window.EduInquiryVariants];
+  function variants(paperId,questionId) {
+    return generators.find(generator=>generator?.count(paperId,questionId));
+  }
   const points = question => question.criteria.reduce((sum, criterion) => sum + criterion.max, 0);
   const kind = question => ({number:'數值題', text:'文字題', choice:'選擇題'})[question.kind] || '其他';
   const clone = value => JSON.parse(JSON.stringify(value));
   const keyOf = ref => JSON.stringify([ref.paperId, ref.questionId, ref.variant || 0]);
+  function relatedLink(papers,question,sourcePaperId) {
+    const origin=question.bankOrigin || {paperId:sourcePaperId,questionId:question.id,variant:0};
+    let paper=papers.find(p=>p.id===origin.paperId);
+    let candidate=paper?.questions.find(q=>q.id===origin.questionId);
+    let v=origin.variant || 0;
+    if (v) candidate=variants(origin.paperId,origin.questionId)?.get(origin.paperId,origin.questionId,v);
+    if (!candidate || candidate.prompt!==question.prompt) {
+      const matches=papers.flatMap(p=>p.questions.filter(q=>q.prompt===question.prompt && variants(p.id,q.id)).map(q=>[p,q]));
+      if (matches.length!==1) return '';
+      [paper,candidate]=matches[0];
+      v=0;
+    }
+    if (!paper || !variants(paper.id,candidate.id)) return '';
+    return '#question-bank/'+encodeURIComponent(paper.id)+'/'+encodeURIComponent(candidate.id)+'~'+v;
+  }
 
   function selected(papers, refs) {
     if (!Array.isArray(refs) || refs.length > 20) throw Error('每份試卷最多選 20 題。');
@@ -14,7 +32,7 @@
     return refs.map((ref, i) => {
       const paper = papers.find(p => p.id === ref.paperId);
       const base = paper?.questions.find(q => q.id === ref.questionId);
-      const question = ref.variant ? variants()?.get(ref.paperId, ref.questionId, ref.variant) : base;
+      const question = ref.variant ? variants(ref.paperId,ref.questionId)?.get(ref.paperId, ref.questionId, ref.variant) : base;
       if (!base || !question) throw Error('找不到所選題目或變式。');
       if (first && (first.year !== paper.year || first.subject !== paper.subject)) throw Error('同一份卷只可選同年級、同科的題目。');
       first = paper;
@@ -42,7 +60,7 @@
     return {id,revision,title:draft.title.trim(),minutes:draft.minutes,year,subject,custom:true,bankAssembled:true,description:'老師從題庫選編',questions};
   }
 
-  function mount(root, {papers, draft, save, finish, onCreated, savedLabel='草稿已儲存至伺服器', backHref='#papers'}) {
+  function mount(root, {papers, draft, save, finish, onCreated, collection, questionRef, savedLabel='草稿已儲存至伺服器', backHref='#papers'}) {
     const data = clone(draft);
     const all = papers.flatMap(paper => paper.questions.map(question => ({paper,question})));
     const pageSize = 8;
@@ -82,7 +100,7 @@
         if (field('kind').value && field('kind').value!==kind(q)) return false;
         if (field('difficulty').value && field('difficulty').value!==(q.difficulty||'未標示')) return false;
         if (field('feature').value === 'diagram' && !q.diagram) return false;
-        if (field('feature').value === 'variants' && !variants()?.count(paper.id,q.id)) return false;
+        if (field('feature').value === 'variants' && !variants(paper.id,q.id)) return false;
         const haystack = [paper.year,paper.subject,paper.title,q.topic,q.prompt].join(' ').normalize('NFKC').toLocaleLowerCase();
         return terms.every(t=>haystack.includes(t));
       });
@@ -92,7 +110,8 @@
       const first = papers.find(p=>p.id===data.refs[0]?.paperId);
       field('rows').innerHTML = list.slice(page*pageSize,(page+1)*pageSize).map(({paper,question:base})=>{
         const key = keyOf({paperId:paper.id,questionId:base.id}), v = versionChoices.get(key) || 0;
-        const q = v ? variants().get(paper.id,base.id,v) : base, count = variants()?.count(paper.id,base.id) || 0;
+        const generator = variants(paper.id,base.id);
+        const q = v ? generator.get(paper.id,base.id,v) : base, count = generator?.count(paper.id,base.id) || 0;
         const taken = data.refs.some(ref=>ref.paperId===paper.id && ref.questionId===base.id && (ref.variant||0)===v);
         const wrongSubject = first && (first.subject!==paper.subject || first.year!==paper.year);
         const image = /^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram||'') ? '<img loading="lazy" alt="'+esc(q.diagramAlt||'試題配圖')+'" src="'+esc(q.diagram)+'">' : '';
@@ -139,7 +158,24 @@
     window.addEventListener('hashchange',leave,{once:true});
     field('title').value = data.title;
     field('minutes').value = data.minutes;
-    refreshTopics(); drawResults(); drawCart();
+    const source=papers.find(p=>p.id===collection);
+    const [qid,fromVersion]=String(questionRef||'').split('~');
+    const item=source?.questions.find(q=>q.id===qid);
+    const available=source && item && variants(source.id,qid)?.count(source.id,qid);
+    const course = available?[source.year,source.subject]:new Map([['equations',['中一','數學']],['percent',['中二','數學']],['inquiry',['中一','科學']]]).get(collection);
+    if (course) {
+      [field('year').value,field('subject').value] = course;
+      field('feature').value='variants';
+    }
+    refreshTopics();
+    if (available) {
+      const previous=Number(fromVersion);
+      const next=Number.isInteger(previous) && previous>=0 && previous<=available?previous%available+1:1;
+      versionChoices.set(keyOf({paperId:source.id,questionId:qid}),next);
+      field('search').value=source.title;
+      field('topic').value=item.topic || '';
+    }
+    drawResults(); drawCart();
     status(data.revision ? savedLabel : '選入第一題後會自動儲存草稿。');
     root.addEventListener('input',e=>{
       if (e.target===field('search')) { page=0; drawResults(); }
@@ -183,5 +219,5 @@
       } catch(error) {status(error.message); if (action==='finish' && (error.code==='bank_conflict' || /重新讀取/.test(error.message))) {conflict=true; showRetry(true,true); drawCart();}}
     });
   }
-  window.EduFlowQuestionBank={mount,assemble};
+  window.EduFlowQuestionBank={mount,assemble,relatedLink};
 })();
