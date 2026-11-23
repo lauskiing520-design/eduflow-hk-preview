@@ -10,13 +10,16 @@
   const group = params.get('room') || (paper?.year === '中二' ? '2a' : '1a');
   const sheets = [], byMarker = new Map();
   const rowsPerPage = 6;
-  let incoming = [], isExample = false, busy = false, confirmed = false, pageCount, storageKey;
+  let batches = [], busy = false, pageCount, storageKey, savedText, previousValues = null, photoSession = null;
+  const current = () => batches.at(-1);
+  const sampleOnly = () => batches.length > 0 && batches.every(b => b.example);
 
   function sheetLabel(s) { return students[s.student]+' · 第 '+s.page+' 頁'; }
   function msg(text) { $('message').textContent = text; }
   function setBusy(value) {
     busy = value;
-    for (const id of ['example','choose','confirm','revise']) $(id).disabled = busy;
+    for (const id of ['example','choose','confirm','revise','cancel','skip-unknown','photo-topup','resume-photos']) $(id).disabled = busy;
+    $('bundles').querySelectorAll('button').forEach(button=>button.disabled=busy);
   }
   function drawCode(ctx,s,x,y) {
     const qr = qrcode(0,'M'); qr.addData(s.marker); qr.make();
@@ -58,7 +61,7 @@
   }
   function updatePrint() {
     const choice=$('pupil').value;
-    const selected=sheets.filter(s => choice==='all'||s.student===Number(choice));
+    const selected=sheets.filter(s => choice==='all'||s.student===Number(choice)||s.marker===choice);
     const images=selected.map(s=>{
       const img=new Image();img.alt=sheetLabel(s);img.src=s.printImage;return img;
     });
@@ -66,6 +69,11 @@
     $('print-count').textContent=selected.length+' 張 A4 · 建議單面列印';
     $('preview').src=selected[0].printImage;
     $('caption').textContent=sheetLabel(selected[0]);
+  }
+  async function printSheets(){
+    const images=[...$('print-sheets').children];
+    try {await Promise.all(images.map(img=>img.decode()));window.print();}
+    catch {msg('未能載入列印頁面，請重新選擇答題紙。');}
   }
   function pageImage(img) {
     const scale=Math.min(1,1700/Math.max(img.naturalWidth,img.naturalHeight));
@@ -92,32 +100,61 @@
     thumb.getContext('2d').drawImage(canvas,0,0,thumb.width,thumb.height);
     return {name,hint,image:thumb.toDataURL('image/jpeg',.78),match:matched?.marker||'',foreign:Boolean(code&&!matched),value:matched?.marker||''};
   }
-  function readSample() {
-    try{return JSON.parse(localStorage.getItem(storageKey));}catch{return null;}
+  function readSample(){
+    try{
+      savedText=localStorage.getItem(storageKey);
+      const saved=JSON.parse(savedText);
+      if(Array.isArray(saved?.batches)) return saved.batches;
+      // Earlier trials stored the first batch directly.
+      return Array.isArray(saved?.values)?[{sheet:null,values:saved.values,confirmed:saved.confirmed}]:[];
+    }catch{return [];}
   }
   function saveSample(){
-    if(!isExample)return true;
-    try{localStorage.setItem(storageKey,JSON.stringify({values:incoming.map(r=>r.value),confirmed}));return true;}
-    catch{return false;}
+    if(!sampleOnly() || previousValues) return true;
+    try{
+      if(localStorage.getItem(storageKey)!==savedText){
+        msg('另一個分頁已更新示例記錄。點「繼續核對示例頁」讀取最新資料。');
+        return false;
+      }
+      const data={batches:batches.map(b=>({sheet:b.sheet,values:b.rows.map(r=>r.value),confirmed:b.confirmed}))};
+      const text=JSON.stringify(data);
+      localStorage.setItem(storageKey,text);savedText=text;
+      $('example').textContent='繼續核對示例頁';return true;
+    }catch{msg('瀏覽器未能儲存本次配對。關閉分頁後記錄可能遺失。');return false;}
   }
-  function totals() {
-    const counts=new Map();
-    for(const row of incoming) if(byMarker.has(row.value))counts.set(row.value,(counts.get(row.value)||0)+1);
-    const duplicate=[...counts.values()].some(n=>n>1);
-    return {counts,empty:incoming.filter(row=>!row.value).length,duplicate};
+  function staleSample(){
+    if(!sampleOnly())return false;
+    try{return localStorage.getItem(storageKey)!==savedText;}catch{return false;}
+  }
+  function collected(list){
+    const markers=new Set();
+    for(const b of list) if(b.confirmed) for(const row of b.rows) if(byMarker.has(row.value))markers.add(row.value);
+    return markers;
+  }
+  function totals(){
+    const counts=new Map(), prior=collected(batches.slice(0,-1)), rows=current().rows;
+    for(const row of rows) if(byMarker.has(row.value))counts.set(row.value,(counts.get(row.value)||0)+1);
+    const duplicate=[...counts.entries()].some(([id,n])=>n>1||prior.has(id));
+    return {counts,prior,empty:rows.filter(r=>!r.value).length,duplicate};
   }
   function updateTally(){
-    const {counts,empty,duplicate}=totals();
-    const ignored=incoming.filter(r=>r.value==='skip').length;
-    $('tally').textContent='已配對 '+counts.size+' / '+sheets.length+' 張應收頁 · 待核對 '+empty+' 張'+(ignored?' · 略過 '+ignored+' 張':'')+
+    const {counts,prior,empty,duplicate}=totals(), rows=current().rows;
+    const ignored=rows.filter(r=>r.value==='skip').length;
+    $('tally').textContent=(prior.size?'先前已確認 '+prior.size+' 頁 · ':'')+
+      '本批已配對 '+counts.size+' 頁 · 待核對 '+empty+' 張'+(ignored?' · 略過 '+ignored+' 張':'')+
       (duplicate?'。有兩張相片指向同一頁，請保留一張。':'');
-    $('confirm').disabled=busy||!counts.size||!!empty||duplicate;
-    $('pages').querySelectorAll('.scan-row').forEach((row,i)=>{
-      row.querySelector('small').textContent=counts.get(incoming[i].value)>1?'重複頁，請核對':row.dataset.note;
+    $('confirm').disabled=busy||staleSample()||!counts.size||!!empty||duplicate;
+    $('skip-unknown').hidden=!rows.some(r=>!r.value&&!r.match&&!r.foreign);
+    $('cancel').hidden=batches.length<2 && !previousValues;
+    $('cancel').textContent=previousValues?'取消更改':'取消這批補交';
+    $('pages').querySelectorAll('.scan-row').forEach((node,i)=>{
+      const row=rows[i];
+      node.querySelector('small').textContent=prior.has(row.value)?'這一頁先前已收件，請略過重複頁':
+        counts.get(row.value)>1?'重複頁，請核對':node.dataset.note;
     });
   }
   function showRows(){
-    const rows=incoming.map((r,i)=>{
+    const rows=current().rows.map((r,i)=>{
       const article=document.createElement('article');article.className='scan-row';
       const left=document.createElement('div'),right=document.createElement('div'),title=document.createElement('strong');
       title.textContent='收件 '+(i+1)+' · '+r.name;left.append(title);
@@ -136,58 +173,109 @@
       const eligible=r.foreign?[]:r.match?[byMarker.get(r.match)]:sheets;
       for(const s of eligible)select.add(new Option(sheetLabel(s),s.marker));
       select.add(new Option('略過這一張','skip'));select.value=r.value;
-      select.addEventListener('change',()=>{r.value=select.value;confirmed=false;updateTally();if(!saveSample())msg('瀏覽器未能儲存本次配對。');});
+      select.addEventListener('change',()=>{r.value=select.value;updateTally();saveSample();});
       right.append(label,select);article.append(left,right);return article;
     });
+    $('review-heading').textContent=batches.length>1?'第 '+batches.length+' 批 · 補交頁核對':'逐頁核對';
     $('pages').replaceChildren(...rows);$('review').hidden=false;$('finished').hidden=true;
     updateTally();
   }
-  function summary(){
-    const {counts}=totals();
-    $('review').hidden=true;$('finished').hidden=false;
-    $('receipt-summary').textContent='已核對 '+counts.size+' / '+sheets.length+' 張應收頁。';
-    $('bundles').replaceChildren(...students.map((name,i)=>{
-      const own=sheets.filter(s=>s.student===i);
-      const received=own.filter(s=>counts.has(s.marker)),missing=own.filter(s=>!counts.has(s.marker));
-      const li=document.createElement('li');
-      li.textContent=name+' · 已收 '+received.length+' / '+own.length+' 頁'+(missing.length?' · 欠第 '+missing.map(s=>s.page).join('、')+' 頁':' · 齊頁');return li;
-    }));
-    $('finished-heading').focus();
+  function action(label,handler){
+    const button=document.createElement('button');button.type='button';button.textContent=label;
+    button.addEventListener('click',handler);return button;
   }
-  async function example(){
+  function summary(focus=true){
+    const received=collected(batches);
+    $('review').hidden=true;$('finished').hidden=false;
+    $('receipt-summary').textContent='已核對 '+received.size+' / '+sheets.length+' 張應收頁 · 共 '+batches.length+' 批。';
+    $('bundles').replaceChildren(...students.map((name,i)=>{
+      const own=sheets.filter(s=>s.student===i),missing=own.filter(s=>!received.has(s.marker));
+      const li=document.createElement('li'),label=document.createElement('strong');
+      label.textContent=name+' · 已收 '+(own.length-missing.length)+' / '+own.length+' 頁'+(missing.length?' · 欠第 '+missing.map(s=>s.page).join('、')+' 頁':' · 齊頁');li.append(label);
+      for(const s of missing){
+        const row=document.createElement('div');row.className='missing-actions';
+        row.append(action('補印第 '+s.page+' 頁',()=>{
+          $('pupil').value=s.marker;updatePrint();printSheets();
+        }));
+        if(sampleOnly()) row.append(action('試收第 '+s.page+' 頁補交',()=>supplement(s)));
+        li.append(row);
+      }
+      return li;
+    }));
+    $('photo-topup').hidden=received.size===sheets.length;
+    if(focus)$('finished-heading').focus();
+  }
+  function restore(rows,stored){
+    if(!Array.isArray(stored?.values)||stored.values.length!==rows.length)return false;
+    for(let i=0;i<rows.length;i++){
+      const row=rows[i],val=stored.values[i];
+      if(val!=='' && val!=='skip' && (!byMarker.has(val)||row.foreign||(row.match&&row.match!==val)))return false;
+    }
+    rows.forEach((r,i)=>{r.value=stored.values[i];});return true;
+  }
+  async function example(focus=true){
     if(busy)return;setBusy(true);msg('正在讀取示例回收頁的二維碼…');
     try{
-      const batch=[], order=sheets.slice().reverse();
+      const rows=[], order=sheets.slice().reverse(), saved=readSample();
       for(let i=0;i<order.length;i++){
         await new Promise(resolve=>requestAnimationFrame(resolve));
-        const s=order[i];batch.push(makeRow(drawSheet(s,true,i===order.length-1),'示例紙卷',sheetLabel(s)));
+        const s=order[i];rows.push(makeRow(drawSheet(s,true,i===order.length-1),'示例紙卷',sheetLabel(s)));
       }
-      const prev=readSample();
-      if(prev?.values?.length===batch.length)batch.forEach((r,i)=>{
-        const v=prev.values[i];
-        if(v==='skip'||v===''||(byMarker.has(v)&&(!r.match||r.match===v)))r.value=v;
-      });
-      incoming=batch;isExample=true;setBusy(false);const t=totals();
-      confirmed=!!prev?.confirmed&&!!t.counts.size&&!t.empty&&!t.duplicate;
-      msg('已讀取 '+batch.length+' 張示例頁。');
-      if(confirmed)summary();else{showRows();$('review-heading').focus();}
-    }catch{setBusy(false);if(incoming.length)updateTally();msg('暫時未能讀取示例，請再試一次。');}
+      if(batches.some(b=>!b.example))photoSession={batches,previousValues};
+      batches=[{rows,example:true,sheet:null,confirmed:false}];previousValues=null;
+      $('resume-photos').hidden=!photoSession;
+      for(let i=0;i<Math.min(saved.length,sheets.length+1);i++){
+        const item=saved[i];
+        if(i){
+          const sheet=byMarker.get(item?.sheet);
+          if(!current().confirmed||!sheet||collected(batches).has(sheet.marker))break;
+          batches.push({rows:[makeRow(drawSheet(sheet,true),'示例補交頁',sheetLabel(sheet))],sheet:sheet.marker,example:true,confirmed:false});
+        }
+        if(!restore(current().rows,item))break;
+        const t=totals();current().confirmed=!!item.confirmed&&!!t.counts.size&&!t.empty&&!t.duplicate;
+      }
+      setBusy(false);msg(saved.length?'已讀取這個瀏覽器的示例收件記錄。':'已讀取 '+rows.length+' 張示例頁。');
+      if(current().confirmed)summary(focus);else{showRows();if(focus)$('review-heading').focus();}
+    }catch{setBusy(false);msg('暫時未能讀取示例，請再試一次。');}
+  }
+  async function supplement(s){
+    if(busy||!current()?.confirmed||collected(batches).has(s.marker))return;
+    setBusy(true);msg('正在讀取示例補交頁的二維碼…');
+    try{
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+      const row=makeRow(drawSheet(s,true),'示例補交頁',sheetLabel(s));
+      batches.push({rows:[row],example:true,sheet:s.marker,confirmed:false});
+      previousValues=null;setBusy(false);showRows();msg('請核對這一張補交頁。');
+      saveSample();$('review-heading').focus();
+    }catch{setBusy(false);msg('未能讀取示例補交頁，請再試一次。');}
   }
   async function photos(files){
     if(busy||!files.length)return;
     if(files.length>sheets.length*2||files.some(f=>!['image/png','image/jpeg'].includes(f.type)||f.size>20*1024*1024)){
       msg('請選取最多 '+(sheets.length*2)+' 張 JPG 或 PNG 相片，每張上限 20 MB。');return;
     }
-    setBusy(true);const batch=[];
+    setBusy(true);const rows=[];
     try{
       for(const [i,f] of files.entries()){
         msg('正在讀取第 '+(i+1)+' / '+files.length+' 張相片…');
         await new Promise(resolve=>requestAnimationFrame(resolve));
         const url=URL.createObjectURL(f),img=new Image();
-        try{img.src=url;await img.decode();batch.push(makeRow(pageImage(img),f.name));}finally{URL.revokeObjectURL(url);}
+        try{img.src=url;await img.decode();rows.push(makeRow(pageImage(img),f.name));}finally{URL.revokeObjectURL(url);}
       }
-      incoming=batch;isExample=false;confirmed=false;setBusy(false);showRows();msg('相片已在這個分頁讀取。');$('review-heading').focus();
-    }catch{setBusy(false);if(incoming.length)updateTally();msg('其中一張相片無法讀取。請重新選擇可開啟的 JPG 或 PNG。');}
+      // Uploaded images stay in this tab. Add more files to an unfinished photo batch.
+      if(current()&&!current().confirmed&&!current().example&&previousValues){
+        current().rows.forEach((r,i)=>{r.value=previousValues[i];});current().confirmed=true;
+      }
+      if(current()&&!current().confirmed&&current().example)batches.pop();
+      if(current()&&!current().confirmed){
+        if(current().rows.length+rows.length>sheets.length*2){
+          setBusy(false);updateTally();msg('這批相片已達上限，請先完成目前這批收件。');return;
+        }
+        current().rows.push(...rows);
+      }else batches.push({rows,example:false,confirmed:false});
+      previousValues=null;photoSession=null;$('resume-photos').hidden=true;setBusy(false);
+      showRows();msg('相片已在這個分頁讀取。');$('review-heading').focus();
+    }catch{setBusy(false);if(current()&&!current().confirmed)updateTally();msg('其中一張相片無法讀取。請重新選擇可開啟的 JPG 或 PNG。');}
   }
   async function start(){
     if(!paper||!Object.hasOwn(groups,group)||!groups[group].startsWith(paper.year))throw Error();
@@ -207,18 +295,52 @@
     if(params.has('paper')&&params.has('room')){
       $('back').href='assessment.html#sample-homework/'+group+'/'+encodeURIComponent(paper.id);$('back').textContent='返回派卷記錄';
     }
-    if(readSample())$('example').textContent='繼續核對示例頁';
+    const single=document.createElement('optgroup');single.label='指定一頁';
+    for(const sheet of sheets)single.append(new Option(sheetLabel(sheet),sheet.marker));
+    $('pupil').append(single);
     $('tools').hidden=false;updatePrint();
     $('pupil').addEventListener('change',updatePrint);
-    $('print').addEventListener('click',async()=>{await Promise.all([...$('print-sheets').children].map(img=>img.decode()));window.print();});
-    $('example').addEventListener('click',example);
-    $('choose').addEventListener('click',()=>$('images').click());
-    $('images').addEventListener('change',e=>{const files=[...e.target.files];e.target.value='';photos(files);});
-    $('confirm').addEventListener('click',()=>{
-      const t=totals();if(!t.counts.size||t.empty||t.duplicate)return;
-      confirmed=true;msg(isExample?(saveSample()?'示例收件記錄已存於此瀏覽器。':'示例收件已確認，瀏覽器未能儲存記錄。'):'相片核對結果只保留在目前分頁。');summary();
+    $('print').addEventListener('click',printSheets);
+    $('example').addEventListener('click',()=>example());
+    $('resume-photos').addEventListener('click',()=>{
+      if(!photoSession)return;
+      ({batches,previousValues}=photoSession);photoSession=null;$('resume-photos').hidden=true;
+      msg('已返回本分頁的相片收件記錄。');
+      if(current().confirmed)summary();else{showRows();$('review-heading').focus();}
     });
-    $('revise').addEventListener('click',()=>{confirmed=false;saveSample();showRows();msg('可重新核對頁面。');$('review-heading').focus();});
+    for(const id of ['choose','photo-topup'])$(id).addEventListener('click',()=>$('images').click());
+    $('images').addEventListener('change',e=>{const files=[...e.target.files];e.target.value='';photos(files);});
+    $('skip-unknown').addEventListener('click',()=>{
+      for(const row of current().rows) if(!row.value&&!row.match&&!row.foreign)row.value='skip';
+      showRows();msg('未配對頁已略過。確認後可按欠頁清單補印或收取補交。');saveSample();
+    });
+    $('confirm').addEventListener('click',()=>{
+      const t=totals();if(busy||!t.counts.size||t.empty||t.duplicate)return;
+      if(staleSample()){msg('另一個分頁已更新示例記錄，請點「繼續核對示例頁」讀取最新資料。');return;}
+      current().confirmed=true;previousValues=null;
+      msg(sampleOnly()?'示例收件記錄已存於此瀏覽器。':'相片核對結果只保留在目前分頁。');
+      saveSample();summary();
+    });
+    $('revise').addEventListener('click',()=>{
+      previousValues=current().rows.map(r=>r.value);current().confirmed=false;showRows();
+      msg('可重新核對最近一批頁面。');$('review-heading').focus();
+    });
+    $('cancel').addEventListener('click',()=>{
+      if(previousValues){
+        current().rows.forEach((r,i)=>{r.value=previousValues[i];});current().confirmed=true;previousValues=null;
+      }else if(batches.length>1)batches.pop();
+      else return;
+      msg('已返回先前確認的收件清單。');saveSample();summary();
+    });
+    window.addEventListener('storage',e=>{
+      if((e.key===storageKey||e.key===null)&&staleSample()){
+        $('confirm').disabled=true;
+        $('example').textContent='繼續核對示例頁';
+        msg('另一個分頁已更新示例記錄。點「繼續核對示例頁」即可讀取。');
+      }
+    });
+    if(readSample().length){$('example').textContent='繼續核對示例頁';await example(false);}
+
   }
   start().catch(()=>{$('context').textContent='未能準備這份答題紙。請返回學校試用，重新打開紙卷示例。';});
 })();

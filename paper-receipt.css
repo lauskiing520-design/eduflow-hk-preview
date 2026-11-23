@@ -13,3 +13,7 @@ body{margin:0}.site-skip:not(:focus){clip-path:inset(50%)}
 @media(max-width:42rem){.issue{grid-template-columns:minmax(0,1fr) 5.5rem;gap:.6rem}.issue figure img{height:auto;width:100%}.issue figcaption{font-size:.85rem}.scan-row{grid-template-columns:1fr;gap:.4rem}.receipt{padding-top:1rem}}
 @page{size:A4 portrait;margin:0}
 @media print{html,body{margin:0!important;padding:0!important;background:white!important}body>*:not(#print-sheets){display:none!important}#print-sheets{display:block!important}#print-sheets img{display:block;width:210mm;height:296mm;object-fit:contain;break-after:page;page-break-after:always}#print-sheets img:last-child{break-after:auto;page-break-after:auto}}
+
+.receipt .missing-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin:.35rem 0}
+.receipt #bundles{padding:0;list-style:none}.receipt #bundles li{padding:.65rem 0;border-top:1px solid #c7d8cf}
+.receipt #finished .actions{margin-top:.75rem}
