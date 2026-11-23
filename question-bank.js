@@ -9,7 +9,7 @@
   const kind = question => ({number:'數值題', text:'文字題', choice:'選擇題'})[question.kind] || '其他';
   const clone = value => JSON.parse(JSON.stringify(value));
   const keyOf = ref => JSON.stringify([ref.paperId, ref.questionId, ref.variant || 0]);
-  function relatedLink(papers,question,sourcePaperId) {
+  function resolveParallelSource(papers,question,sourcePaperId) {
     const origin=question.bankOrigin || {paperId:sourcePaperId,questionId:question.id,variant:0};
     let paper=papers.find(p=>p.id===origin.paperId);
     let candidate=paper?.questions.find(q=>q.id===origin.questionId);
@@ -17,12 +17,17 @@
     if (v) candidate=variants(origin.paperId,origin.questionId)?.get(origin.paperId,origin.questionId,v);
     if (!candidate || candidate.prompt!==question.prompt) {
       const matches=papers.flatMap(p=>p.questions.filter(q=>q.prompt===question.prompt && variants(p.id,q.id)).map(q=>[p,q]));
-      if (matches.length!==1) return '';
+      if (matches.length!==1) return null;
       [paper,candidate]=matches[0];
       v=0;
     }
-    if (!paper || !variants(paper.id,candidate.id)) return '';
-    return '#question-bank/'+encodeURIComponent(paper.id)+'/'+encodeURIComponent(candidate.id)+'~'+v;
+    const generator=paper && variants(paper.id,candidate.id);
+    if (!generator) return null;
+    return {paperId:paper.id,questionId:candidate.id,variant:v,question:candidate,generator};
+  }
+  function relatedLink(papers,question,sourcePaperId) {
+    const ref=resolveParallelSource(papers,question,sourcePaperId);
+    return ref?'#question-bank/'+encodeURIComponent(ref.paperId)+'/'+encodeURIComponent(ref.questionId)+'~'+ref.variant:'';
   }
 
   function selected(papers, refs) {
@@ -70,12 +75,12 @@
     const options = (items, caption) => '<option value="">'+esc(caption)+'</option>'+[...new Set(items.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-HK')).map(t=>'<option>'+esc(t)+'</option>').join('');
     root.classList.add('question-bank');
     root.innerHTML = `<a class="sheet-back" href="${esc(backHref)}">返回試卷列表</a>
-      <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。</p></header>
+      <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。 <a href="department-library.html">科組題目入庫及審核</a></p></header>
       <div class="qb-layout"><section aria-label="題庫"><div class="qb-search"><label>搜尋題目<input type="search" data-qb="search" placeholder="輸入考點、題目或原卷名稱"></label>
       <div class="qb-filters"><label>年級<select aria-label="年級" data-qb="year">${options(papers.map(p=>p.year),'全部年級')}</select></label><label>科目<select aria-label="科目" data-qb="subject">${options(papers.map(p=>p.subject),'全部科目')}</select></label>
       <label>課題<select aria-label="課題" data-qb="topic"></select></label><label>題型<select aria-label="題型" data-qb="kind">${options(all.map(r=>kind(r.question)),'全部題型')}</select></label>
       <label>難度<select aria-label="難度" data-qb="difficulty">${options(all.map(r=>r.question.difficulty||'未標示'),'全部難度')}</select></label>
-      <label>題目特色<select aria-label="題目特色" data-qb="feature"><option value="">不限</option><option value="diagram">附圖</option><option value="variants">可換變式</option></select></label></div></div>
+      <label>題目特色<select aria-label="題目特色" data-qb="feature"><option value="">不限</option><option value="diagram">附圖</option><option value="variants">可換變式</option><option value="department">科組已審題</option></select></label></div></div>
       <div class="qb-result-head"><h2>題庫</h2><span data-qb="count" aria-live="polite"></span><button type="button" class="button qb-cart-jump" data-qb-action="cart">查看已選題目</button></div><div data-qb="rows"></div><div class="qb-pages" data-qb="paging"></div></section>
       <aside class="qb-cart"><h2>我的組卷</h2><label>試卷名稱<input data-qb="title" maxlength="120" placeholder="例如：中一方程小測"></label><label>建議時間（分鐘）<input data-qb="minutes" type="number" min="1" max="240"></label>
       <p data-qb="summary"></p><ol data-qb="chosen"></ol><button type="button" class="button primary" data-qb-action="finish">確認並預覽試卷</button>
@@ -101,6 +106,7 @@
         if (field('difficulty').value && field('difficulty').value!==(q.difficulty||'未標示')) return false;
         if (field('feature').value === 'diagram' && !q.diagram) return false;
         if (field('feature').value === 'variants' && !variants(paper.id,q.id)) return false;
+        if (field('feature').value === 'department' && !paper.departmentItem) return false;
         const haystack = [paper.year,paper.subject,paper.title,q.topic,q.prompt].join(' ').normalize('NFKC').toLocaleLowerCase();
         return terms.every(t=>haystack.includes(t));
       });
@@ -167,6 +173,7 @@
       [field('year').value,field('subject').value] = course;
       field('feature').value='variants';
     }
+    if (collection==='department') field('feature').value='department';
     refreshTopics();
     if (available) {
       const previous=Number(fromVersion);
@@ -219,5 +226,5 @@
       } catch(error) {status(error.message); if (action==='finish' && (error.code==='bank_conflict' || /重新讀取/.test(error.message))) {conflict=true; showRetry(true,true); drawCart();}}
     });
   }
-  window.EduFlowQuestionBank={mount,assemble,relatedLink};
+  window.EduFlowQuestionBank={mount,assemble,relatedLink,resolveParallelSource};
 })();

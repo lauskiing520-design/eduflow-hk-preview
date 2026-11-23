@@ -7,6 +7,7 @@ window.createPreviewQuestionBank = function (catalogue) {
   const seen = new Set();
   const blank = () => ({id:'assembled-'+crypto.randomUUID(),revision:0,title:'',minutes:30,refs:[]});
   const read = key => JSON.parse(localStorage.getItem(key));
+  const library = () => [...catalogue,...window.EduDepartmentSample.approved()];
   function valid(draft) {
     return validId.test(draft?.id) && Number.isSafeInteger(draft.revision) && draft.revision >= 0 &&
       typeof draft.title === 'string' && draft.title.length<=120 && Number.isInteger(draft.minutes) &&
@@ -43,7 +44,7 @@ window.createPreviewQuestionBank = function (catalogue) {
   }
   function materialise(spec) {
     if (!valid(spec)) throw Error('無法讀取這份自選試卷。');
-    return EduFlowQuestionBank.assemble(catalogue,spec,spec.id,spec.revision);
+    return EduFlowQuestionBank.assemble(library(),spec,spec.id,spec.revision);
   }
   async function finish(draft,key) {
     checkVersion(draft,key);
@@ -70,7 +71,7 @@ window.createPreviewQuestionBank = function (catalogue) {
     }
   }
   function mount(root,onCreated,collection,questionRef) {
-    const collections = new Set(['equations','percent','inquiry']);
+    const collections = new Set(['equations','percent','inquiry','department']);
     const sourceScopes={'s1-equations-a':'equations','s1-equations-b':'equations','s2-percent-a':'percent','s2-percent-b':'percent','s1-science-inquiry-full':'inquiry'};
     let draft, scope=collections.has(collection)?collection:Object.hasOwn(sourceScopes,collection)?sourceScopes[collection]:'';
     try {
@@ -79,14 +80,14 @@ window.createPreviewQuestionBank = function (catalogue) {
         if (collections.has(recent)) scope=recent;
       }
     } catch { /* The catalogue also works without saved drafts. */ }
-    const key=['percent','inquiry'].includes(scope)?activeKey+':'+scope:activeKey;
+    const key=['percent','inquiry','department'].includes(scope)?activeKey+':'+scope:activeKey;
     try { draft=active(key); } catch {}
     const saveHere = async next=>{
       const result=await save(next,key);
       try { write(activeKey+':last',scope); } catch { /* The subject draft was saved above. */ }
       return result;
     };
-    EduFlowQuestionBank.mount(root,{papers:catalogue,draft:draft || blank(),collection,questionRef,save:saveHere,finish:next=>finish(next,key),
+    EduFlowQuestionBank.mount(root,{papers:library(),draft:draft || blank(),collection,questionRef,save:saveHere,finish:next=>finish(next,key),
       onCreated,savedLabel:'選題草稿已儲存在此瀏覽器',backHref:'#papers'});
   }
   return {sync,mount};

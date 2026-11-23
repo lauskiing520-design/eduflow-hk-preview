@@ -1,0 +1,10 @@
+.feedback-trial{width:min(100% - 2rem,48rem);margin:2rem auto 4rem;color:#18364b}
+.feedback-trial header{margin:2rem 0}.feedback-trial h1{font-size:clamp(1.9rem,5vw,2.6rem);margin:.35rem 0}
+.feedback-trial nav{display:flex;gap:1.5rem;border-bottom:1px solid #bbc9d1;margin-bottom:1.5rem}
+.feedback-trial nav a{font-weight:650;text-decoration:none;padding:.65rem 0}.feedback-trial nav [aria-current]{border-bottom:3px solid #245ebc}
+.feedback-trial section{border:1px solid #ccd9e1;border-radius:.6rem;padding:clamp(1rem,4vw,2rem)}
+.feedback-trial section h2{margin:0;font-size:1.4rem}.feedback-trial label{display:block;font-weight:650;margin:1rem 0 .4rem}
+.feedback-trial textarea,.feedback-trial select,.feedback-trial button{font:inherit;border:1px solid #9cb0c1;border-radius:.35rem;padding:.6rem .8rem;max-width:100%;color:inherit;background:white}
+.feedback-trial textarea{width:100%;box-sizing:border-box}.feedback-trial button{cursor:pointer;margin-top:.7rem}.feedback-trial button.primary{display:block;background:#1857ac;color:white;margin-top:1.4rem;border-color:#1857ac}
+.feedback-trial aside,.feedback-trial blockquote{border-left:3px solid #367493;background:#edf4f7;margin:1rem 0;padding:.8rem 1rem}.feedback-trial aside h3{margin:0}
+#student-comment{white-space:pre-line}

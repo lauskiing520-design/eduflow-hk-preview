@@ -70,10 +70,18 @@ window.createPreviewAnswerReport = function (catalogue,esc) {
     s.otherWrong = s.wrongCount-s.patterns.reduce((sum,g)=>sum+g.count,0);
     return s;
   }
-  function openReport(q) {
+  function openMarks(q) {
     // Each entry represents the points that a fictional teacher awarded on one script.
     const awards = [[],[0],[0],[],[1],[0],[],[0],q.criteria.map((c,i)=>i)];
-    const records = awards.map(missed=>q.criteria.map((c,i)=>missed.includes(i)?0:c.max));
+    return awards.map(missed=>q.criteria.map((c,i)=>missed.includes(i)?0:c.max));
+  }
+  function pointRecords(q) {
+    if (q.kind==='text' && q.criteria.every(c=>c.mode==='manual')) return openMarks(q);
+    if (!numeric(q) && !choice(q)) return [];
+    return exampleRows(q).map(row=>q.criteria.map(c=>row.mark==='full' || (row.mark==='partial' && c.mode==='manual')?c.max:0));
+  }
+  function openReport(q) {
+    const records=openMarks(q);
     const max=q.criteria.reduce((sum,c)=>sum+c.max,0);
     const totals=records.map(marks=>marks.reduce((sum,n)=>sum+n,0));
     const full=totals.filter(n=>n===max).length,zero=totals.filter(n=>n===0).length;
@@ -98,9 +106,11 @@ window.createPreviewAnswerReport = function (catalogue,esc) {
       p.questions.map((q,i)=>'<option value="'+i+'">第 '+(i+1)+' 題 · '+esc(q.topic||q.prompt.slice(0,30))+'</option>').join('')+
       '</select><div id="report-question-body" aria-live="polite"></div></section>';
   }
-  function mount(root,p,questionFigure) {
+  function mount(root,p,questionFigure,followups,room,initial='') {
     const picker = root.querySelector('#report-question');
     const body = root.querySelector('#report-question-body');
+    const [startIndex,firstCriterion] = initial.split('~');
+    if (/^\d+$/.test(startIndex) && Number(startIndex)<p.questions.length) picker.value=startIndex;
     function show() {
       const q = p.questions[Number(picker.value)];
       const follow=EduFlowQuestionBank.relatedLink(catalogue,q,p.id);
@@ -110,6 +120,7 @@ window.createPreviewAnswerReport = function (catalogue,esc) {
       if (!numeric(q) && !choice(q)) {
         if (q.kind==='text' && q.criteria.length && q.criteria.every(c=>c.mode==='manual')) {
           body.innerHTML=header+openReport(q)+practice;
+          followups.mountTeacher(body,p,room,Number(picker.value),pointRecords(q),firstCriterion);
           return;
         }
         body.innerHTML=header+'<p>此題須逐份閱讀作答。這個數值錯答示例未提供此題的評分記錄。</p>';
@@ -123,6 +134,7 @@ window.createPreviewAnswerReport = function (catalogue,esc) {
         '<details><summary>核對本題的 9 份示例評分記錄</summary><ol>'+
         rows.map(r=>'<li>最終答案　<strong>'+esc(r.answer||'留白')+'</strong><span>'+labels[r.mark]+'</span></li>').join('')+
         '</ol></details>'+practice;
+      followups.mountTeacher(body,p,room,Number(picker.value),pointRecords(q),firstCriterion);
     }
     picker.addEventListener('change',show);
     show();

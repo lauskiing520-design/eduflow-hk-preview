@@ -7,6 +7,7 @@ const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>
 const trialPreflight=createPreviewPreflight(AssessmentData.papers,esc);
 const trialBank=createPreviewQuestionBank(AssessmentData.papers);
 const trialReport=createPreviewAnswerReport(AssessmentData.papers,esc);
+const trialFollowups=createPreviewFollowups(AssessmentData.papers,getPaper,questionFigure,esc);
 const papers=[...AssessmentData.papers];
 function questionFigure(q){return q.diagram&&/^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram)?`<figure class="question-figure"><img src="${q.diagram}" alt="${esc(q.diagramAlt||'幾何示意圖')}"><figcaption>${esc(q.diagramCaption||'示意圖，不按比例繪製；以題目所列條件為準。')}</figcaption></figure>`:''}
 
@@ -74,7 +75,7 @@ function retiredRoute(view,key,p){
 }
 function render(){
  document.body.removeAttribute('data-print');
- const [view,key,num]=(location.hash.slice(1)||'papers').split('/');
+ const [view,key,num,position]=(location.hash.slice(1)||'papers').split('/');
  syncPapers();
  const room=['1a','1b','2a','2b'].includes(num)?num:'';
  const p=getPaper(key);
@@ -83,6 +84,7 @@ function render(){
  if(preview){[title,html]=preview;activeTab='classes'}
  else if(view==='question-bank'){title='從題庫組卷';html='<section id="question-bank"></section>';activeTab='question-bank'}
  else if(view==='sample-analysis'&&trialReport.eligible(p)){title='全班常見錯答';html=trialReport.page(p,room);activeTab='classes'}
+ else if(view==='sample-followup'){title='我的再練作業';html='';activeTab='classes'}
  else if(view==='papers'){title='試卷列表';html=hub(key)}
  else if((view==='paper'||view==='ready')&&p){title=paperName(p);html=paperPage(p,room)}
  else if(view==='preflight'&&p){title='出卷前檢查';html=trialPreflight.page(p,room)}
@@ -92,7 +94,8 @@ function render(){
  else {[title,html]=retiredRoute(view,key,p);activeTab=''}
  $('#assessmentApp').innerHTML=html;
  if(view==='question-bank')trialBank.mount($('#question-bank'),paper=>{syncPapers();location.hash='paper/'+paper.id},key,num);
- if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p,questionFigure);
+ if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p,questionFigure,trialFollowups,room,position);
+ if(view==='sample-followup')trialFollowups.student($('#assessmentApp'),key,Number(num));
  if(view==='preflight'&&p) trialPreflight.mount(p,room,copy=>{registerPaper(copy);previewClasses.carryDue(p.id,copy.id,room)});
  const assignmentForm=$('#sample-assignment');
  if(assignmentForm)previewClasses.restoreDue(assignmentForm);

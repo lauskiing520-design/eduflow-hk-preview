@@ -12,3 +12,14 @@
 #report-question-body ol {padding-inline-start:2rem}
 #report-question-body li {padding:.35rem 0}
 #report-question-body li span {margin-inline-start:1rem}
+.point-practice {border-top:2px solid #356786;margin-top:1.6rem;padding:1.3rem 0;overflow-wrap:anywhere}
+.point-practice .point-question,.point-practice fieldset {background:#f4f7fa;padding:.9rem 1.1rem;margin:.8rem 0;border:1px solid #d1dfe9}
+.point-question p {margin:.5rem 0}
+.point-practice h3 {margin:1.5rem 0 .5rem}
+.point-practice .point-roster {list-style:none;padding:0}
+.point-practice .point-roster>li {border-bottom:1px solid #ccdbe5;padding:1rem 0}
+.point-roster p {margin:.4rem 0}
+.point-roster form {display:flex;gap:.6rem;align-items:end;flex-wrap:wrap}
+.point-roster form label {margin:0}
+.point-practice select {display:block;max-width:100%}
+.point-practice .point-totals {font-weight:650;color:#1d4c6b}

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-Hant-HK"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>科組題庫｜EduFlow HK</title>
+<link rel="stylesheet" href="department-library.css?v=4f89c4bb41">
+<script defer src="department-sample.js?v=8667754f1f"></script><script defer src="department-library.js?v=e2b8578d58"></script>
+</head><body><header class="bar"><a href="index.html">EduFlow HK</a><a href="assessment.html#papers">教師工作台</a></header>
+<main><header class="title"><div><p id="department">教師工作台</p><h1>科組題庫</h1></div><a class="primary" href="assessment.html#question-bank/department">選已審題組卷</a></header>
+<p id="trial" hidden>這裏使用虛構試卷。可以先送審，再切換至示例科組長審核。記錄只存於這個瀏覽器。
+<label>試用身分 <select id="role"><option value="teacher">科任老師</option><option value="lead">科組長</option></select></label></p>
+<p role="status" aria-live="polite" id="message">正在讀取科組題目…</p>
+<section id="submission" hidden><h2>從自己的試卷送審</h2><div id="source-empty" hidden>先建立或上傳一份試卷並確認題目，再回來選題。 <a href="assessment.html#custom">建立自訂試卷</a></div>
+<form id="submit"><div class="fields"><label>已確認的試卷<select id="source"></select></label><label>題目<select id="question"></select></label></div>
+<div id="selected"></div><div class="fields"><label>知識點<input id="topic" maxlength="80" required></label>
+<label>題目及配圖的分享權限<select id="rights" required><option value="">請選擇</option><option value="original">本人或本校原創，可供本科組使用</option><option value="permission">有權在本科組分享題目及配圖</option></select></label></div>
+<button class="primary" type="submit">送交科組審核</button></form></section>
+<section id="library" hidden><div class="list-heading"><h2>題目記錄</h2><label>狀態<select id="status"><option value="">全部</option><option value="pending">待審核</option><option value="approved">已入庫</option><option value="rejected">已退回</option></select></label></div>
+<div id="items"></div></section></main></body></html>
