@@ -1,0 +1,16 @@
+.class-answer-patterns summary {cursor:pointer; line-height:1.5}
+.class-answer-patterns summary strong {font-size:1.2rem}
+.class-answer-patterns summary span {margin-inline-start:1em; color:#46586a}
+.class-answer-patterns[open] summary {margin-block-end:1rem}
+.class-answer-patterns label {display:flex; flex-wrap:wrap; align-items:center; gap:.6rem}
+.class-answer-patterns select {font:inherit; padding:.4rem; width:auto; max-width:100%}
+.answer-pattern-list,.answer-other-counts {list-style:none; padding:0}
+.answer-pattern-list {display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr)); gap:1rem}
+.answer-pattern {border-inline-start:3px solid #3975ab; padding:.4rem .9rem; background:#f2f6fa}
+.answer-pattern>div {display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:.5rem}
+.answer-pattern>div strong {font-size:1.3rem}
+.answer-pattern p,.answer-pattern ul {margin:.4rem 0}
+.answer-pattern ul {padding-inline-start:1.25rem}
+.answer-other-counts {display:flex; flex-wrap:wrap; gap:.3rem 1rem}
+.answer-prompt {font-weight:600}
+@media(max-width:38rem){.class-answer-patterns summary span{display:block;margin-inline-start:1.1em}}

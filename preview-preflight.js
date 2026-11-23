@@ -120,5 +120,5 @@ function createPreviewPreflight(catalogue, esc) {
     byId('pf-save').addEventListener('click',save);
     byId('pf-save-top').addEventListener('click',save);
   }
-  return {sync, page, mount};
+  return {sync, page, mount, addSource(paper) { sources.set(paper.id,paper); }};
 }

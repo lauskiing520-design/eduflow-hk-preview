@@ -1,10 +1,12 @@
 (function(){
 'use strict';
-// Public workbench. Only the example class module manages browser-local assignment records.
+// Public workbench for catalogue papers and browser-local teacher trials.
 const C=AssessmentCore;
 
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const trialPreflight=createPreviewPreflight(AssessmentData.papers,esc);
+const trialBank=createPreviewQuestionBank(AssessmentData.papers);
+const trialReport=createPreviewAnswerReport(AssessmentData.papers,esc);
 const papers=[...AssessmentData.papers];
 function questionFigure(q){return q.diagram&&/^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram)?`<figure class="question-figure"><img src="${q.diagram}" alt="${esc(q.diagramAlt||'幾何示意圖')}"><figcaption>示意圖，不按比例繪製；以題目所列條件為準。</figcaption></figure>`:''}
 
@@ -31,7 +33,7 @@ function hub(filter='bank'){
   const topics=[...new Set(p.questions.map(q=>q.topic).filter(Boolean))];
   return `<article class="library-row"><div><p class="library-subject">${esc(p.year)} · ${esc(p.subject)}</p><h2><a href="#paper/${esc(p.id)}">${esc(p.title)}</a></h2>${topics.length>1?`<p class="library-meta">${esc(topics.slice(0,3).join('、'))}</p>`:''}<p class="library-meta">${p.questions.length} 題　·　${C.totalMax(p)} 分　·　${p.minutes} 分鐘</p></div><div class="actions">${href('paper/'+p.id,'預覽試卷')}${href('assign/'+p.id,'派給班級',true)}</div></article>`;
  }).join('');
- return `<div class="exam-library"><header class="workspace-title"><div><h1>試卷列表</h1><p>選一份卷預覽題目，或派給示例班級，再到學生頁查看作業。</p></div></header><nav class="library-tabs" aria-label="篩選試卷">${tabs}</nav>${rows}</div>`;
+ return `<div class="exam-library"><header class="workspace-title"><div><h1>試卷列表</h1><p>選用現成試卷，或從題庫逐題挑選，組成適合自己班級的一份卷。</p></div>${href('question-bank','從題庫組卷',true)}</header><nav class="library-tabs" aria-label="篩選試卷">${tabs}</nav>${rows}</div>`;
 }
 
 function keyContent(p){return `<section class="teacher-key"><h2>教師參考答案及評分準則</h2><p>接受等值方法及合理文字表達；以下不是逐字匹配的短答答案。</p>${p.questions.map((q,i)=>`<details><summary>第 ${i+1} 題 · ${maxQuestion(q)} 分</summary><p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>`<li>${esc(c.label)}（${c.max} 分；${c.mode==='auto'?'可按客觀答案比對':'教師覆核'}）</li>`).join('')}</ul></details>`).join('')}</section>`}
@@ -49,8 +51,11 @@ function paperPage(p,room){
 }
 
 const previewClasses=createPreviewClasses({papers,esc,href,heading,sheetQuestion,sourceCredit,syncPapers,onRecordsChange:render});
-function registerPaper(copy){papers.push(copy);previewClasses.registerPaper(copy)}
-function syncPapers(){trialPreflight.sync(registerPaper)}
+function registerPaper(copy){if(!getPaper(copy.id)){papers.push(copy);previewClasses.registerPaper(copy)}}
+function syncPapers(){
+ trialBank.sync(p=>{trialPreflight.addSource(p);registerPaper(p)});
+ trialPreflight.sync(registerPaper);
+}
 function retiredRoute(view,key,p){
  const marking='<a class="button primary" href="marking-demo.html">試改示例答卷</a>';
  if(['upload','intake','split','scan','review','result'].includes(view)||view==='tasks'&&key==='scans'){
@@ -76,6 +81,8 @@ function render(){
  let html,title,activeTab='papers';
  const preview=previewClasses.route(view,key,num);
  if(preview){[title,html]=preview;activeTab='classes'}
+ else if(view==='question-bank'){title='從題庫組卷';html='<section id="question-bank"></section>';activeTab='question-bank'}
+ else if(view==='sample-analysis'&&trialReport.eligible(p)){title='全班常見錯答';html=trialReport.page(p,room);activeTab='classes'}
  else if(view==='papers'){title='試卷列表';html=hub(key)}
  else if((view==='paper'||view==='ready')&&p){title=paperName(p);html=paperPage(p,room)}
  else if(view==='preflight'&&p){title='出卷前檢查';html=trialPreflight.page(p,room)}
@@ -84,6 +91,8 @@ function render(){
  else if(view==='marking'){location.replace('marking-demo.html');return}
  else {[title,html]=retiredRoute(view,key,p);activeTab=''}
  $('#assessmentApp').innerHTML=html;
+ if(view==='question-bank')trialBank.mount($('#question-bank'),paper=>{syncPapers();location.hash='paper/'+paper.id},key==='equations');
+ if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p);
  if(view==='preflight'&&p) trialPreflight.mount(p,room,copy=>{registerPaper(copy);previewClasses.carryDue(p.id,copy.id,room)});
  const assignmentForm=$('#sample-assignment');
  if(assignmentForm)previewClasses.restoreDue(assignmentForm);

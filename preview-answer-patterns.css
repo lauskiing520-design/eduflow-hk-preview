@@ -1,0 +1,14 @@
+.trial-answer-report {max-width:850px;margin:0 auto 4rem;color:#16334a}
+.trial-answer-report header {margin-top:2rem}
+.trial-answer-report h1 {margin:.3rem 0;font-size:clamp(1.8rem,4vw,2.5rem)}
+.trial-answer-report .trial-report-note {padding:1rem 1.2rem;background:#eff5fa;border-left:3px solid #386998}
+.trial-answer-report label {display:block;font-weight:650;margin:1.4rem 0 .4rem}
+.trial-answer-report select {width:min(100%,40rem);min-height:44px;font:inherit;color:inherit;padding:.5rem}
+#report-question-body {margin-top:1.6rem;padding:clamp(1rem,3vw,2rem);background:white;border:1px solid #cfdae3;border-radius:10px}
+#report-question-body h2 {font-size:1.15rem;margin-top:0}
+.report-prompt {font-size:1.18rem;line-height:1.65}
+#report-question-body details {margin-top:1.4rem}
+#report-question-body summary {cursor:pointer;font-weight:650}
+#report-question-body ol {padding-inline-start:2rem}
+#report-question-body li {padding:.35rem 0}
+#report-question-body li span {margin-inline-start:1rem}

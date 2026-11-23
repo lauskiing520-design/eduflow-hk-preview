@@ -5,7 +5,9 @@
   const groups = {'1a':'中一 A 班','1b':'中一 B 班','2a':'中二 A 班','2b':'中二 B 班'};
   const params = new URLSearchParams(location.search);
   const catalogue = [...AssessmentData.papers];
-  createPreviewPreflight(AssessmentData.papers).sync(p => catalogue.push(p));
+  const preflight = createPreviewPreflight(AssessmentData.papers);
+  createPreviewQuestionBank(AssessmentData.papers).sync(p => {preflight.addSource(p);catalogue.push(p)});
+  preflight.sync(p => catalogue.push(p));
   const paper = catalogue.find(p => p.id === (params.get('paper') || 's1-equations-a'));
   const group = params.get('room') || (paper?.year === '中二' ? '2a' : '1a');
   const sheets = [], byMarker = new Map();

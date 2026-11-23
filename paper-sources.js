@@ -5,6 +5,17 @@
     return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`;
   }
   function credit(paper) {
+    if (paper.variantOf || paper.bankAssembled) {
+      const notices = new Map();
+      for (const q of paper.questions) {
+        const source = q.source;
+        if (source?.type !== 'adapted') continue;
+        const notice = q.sourceNotice || source.rights || `${source.author}，《${source.title}》。EduFlow HK 選譯並另編解法與評分點。`;
+        const license = source.license ? ' '+link(source.licenseUrl, source.license) : '';
+        notices.set(notice + license, `<p class="field-note paper-credit">${esc(notice)}${license}</p>`);
+      }
+      return [...notices.values()].join('');
+    }
     const source = paper.questions.find(q => q.source?.type === 'adapted')?.source;
     if (!source) return '';
     const notice = paper.attribution || source.rights ||
