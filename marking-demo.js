@@ -6,6 +6,8 @@
     { title: '最後答案', reason: '學生寫 x = 9；正確答案是 x = 6。', score: 0 }
   ];
   const selects = [];
+  const review = createSampleReview(get('feedback').defaultValue);
+  let editing = review.current().id;
   const total = () => selects.reduce((sum, select) => sum + Number(select.value), 0);
   criteria.forEach((item, index) => {
     const row = document.createElement('div');
@@ -26,23 +28,31 @@
     get('rubric').append(row);
   });
   function show(view) {
-    get(view === 'studentView' ? 'studentPaper' : 'teacherPaper').append(get('paper'));
     get('paper').querySelector('.selected')?.classList.remove('selected');
     if (view !== 'teacherView') selectTool('read');
-    ['teacherView','confirmed','studentView'].forEach(id => { get(id).hidden = id !== view; });
+    ['teacherView','confirmed','studentView','teacherRequests'].forEach(id => { get(id).hidden = id !== view; });
     const heading = get(view).querySelector('h2');
     heading.tabIndex = -1;
     heading.focus();
   }
-  get('reviewForm').addEventListener('submit', event => {
+  get('reviewForm').addEventListener('submit', async event => {
     event.preventDefault();
-    get('confirmedScore').textContent = '示例學生 A · ' + total() + ' / 3 分';
-    show('confirmed');
+    const values = {marks:selects.map(s=>Number(s.value)),feedback:get('feedback').value.trim(),
+      ink:[...ink.children].map(n=>({tool:n.getAttribute('class'),d:n.getAttribute('d')}))};
+    const result = await review.publish(values,editing);
+    if (result.conflict) {
+      review.status('另一頁已發布新評分。此頁保留了你的修改。請載入最新評分後再核對。');
+      get('reloadGrade').hidden=false;get('reloadGrade').focus();
+      return;
+    }
+    editing = result.pub.id;
+    review.status('');
+    if(location.hash==='#published') renderRoute(); else location.hash='published';
   });
-  get('studentButton').addEventListener('click', () => {
-    const current = total();
+  function studentPage() {
+    const pub = review.current(), current = pub.marks.reduce((a,b)=>a+b,0);
     const previous = 1;
-    get('studentScore').textContent = '本題得分 ' + current + ' / 3 分';
+    get('studentScore').textContent = '本題得分 ' + current + ' / 3 分 · 第 '+pub.number+' 版';
     get('previousScore').textContent = previous + ' / 3 分';
     get('currentScore').textContent = current + ' / 3 分';
     const difference = current - previous;
@@ -51,20 +61,48 @@
       : '今次比上次' + (difference > 0 ? '多' : '少') + '得 ' + Math.abs(difference) + ' 分。';
     get('breakdown').replaceChildren(...criteria.map((item, i) => {
       const li = document.createElement('li');
-      li.textContent = item.title + '：' + selects[i].value + ' / 1 分';
+      li.textContent = item.title + '：' + pub.marks[i] + ' / 1 分';
       return li;
     }));
-    get('studentFeedback').textContent = get('feedback').value.trim() || '老師未填寫評語。';
+    get('studentFeedback').textContent = pub.feedback || '老師未填寫評語。';
+    const original = get('paper').cloneNode(true);
+    original.removeAttribute('id'); original.setAttribute('class','published-paper');
+    original.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+    original.querySelectorAll('.selected').forEach(n=>n.classList.remove('selected'));
+    drawSaved(original.lastElementChild,pub.ink);
+    get('studentPaper').replaceChildren(original);
+    review.renderStudent(pub);
     show('studentView');
+  }
+  get('studentButton').addEventListener('click', () => { location.hash='student-review'; });
+  for(const id of ['revise','back']) get(id).addEventListener('click',()=>{location.hash='teacher-marking';});
+  function renderRoute() {
+    if (location.hash === '#student-review') studentPage();
+    else if (location.hash === '#teacher-review') {review.renderTeacher();show('teacherRequests');}
+    else if (location.hash === '#published') {
+      const pub = review.current();
+      get('confirmedScore').textContent = '示例學生 A · ' + pub.marks.reduce((a,b)=>a+b,0) + ' / 3 分';
+      show('confirmed');
+    } else show('teacherView');
+  }
+  window.addEventListener('hashchange', () => {review.status('');renderRoute();});
+  window.addEventListener('sample-publication-change', () => {
+    if(location.hash === '#student-review' || location.hash === '#published') renderRoute();
   });
-  get('revise').addEventListener('click', () => show('teacherView'));
-  get('back').addEventListener('click', () => show('teacherView'));
 
   const paper = get('paper');
   const ink = get('inkLayer');
   const history = [];
   let tool = 'read';
   let stroke = null;
+  function drawSaved(layer, paths) {
+    layer.replaceChildren();
+    for (const item of paths || []) {
+      if (!['pen','highlight'].includes(item.tool) || typeof item.d!=='string' || !/^[ML\d\s.-]+$/.test(item.d)) continue;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('class',item.tool);path.setAttribute('d',item.d);layer.append(path);
+    }
+  }
   function selectTool(next) {
     tool = next;
     paper.classList.toggle('inking', next !== 'read');
@@ -143,4 +181,16 @@
     updateButtons();
   });
   get('printReport').addEventListener('click', () => window.print());
+  function loadPublishedGrade() {
+    const pub = review.current();
+    pub.marks.forEach((n,i)=>{selects[i].value=String(n);});
+    get('total').textContent=total()+' / 3 分';get('feedback').value=pub.feedback;
+    drawSaved(ink,pub.ink);history.length=0;updateButtons();
+    editing=pub.id;get('reloadGrade').hidden=true;
+  }
+  get('reloadGrade').addEventListener('click',()=>{
+    loadPublishedGrade();review.status('已載入最新評分，可以逐項核對。');
+  });
+  loadPublishedGrade();
+  if(location.hash) renderRoute();
 })();

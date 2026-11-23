@@ -1,0 +1,15 @@
+body{margin:0}.site-skip:not(:focus){clip-path:inset(50%)}
+.receipt{max-width:66rem;margin:auto;padding:2rem clamp(1rem,4vw,3rem) 4rem;color:#18364e;font:1.05rem/1.6 system-ui,"Microsoft JhengHei",sans-serif}
+.receipt .back{color:#235b97}.receipt header{margin:1.3rem 0 1.7rem}.receipt h1,.receipt h2,.receipt h3{line-height:1.35;margin:0 0 .65rem}
+.receipt h1{font-size:clamp(1.9rem,4vw,2.5rem)}.receipt h2{font-size:1.45rem}.receipt p{margin:.45rem 0 .85rem}.receipt .muted,.receipt figcaption{color:#536879;font-size:.98rem}
+.issue{display:grid;grid-template-columns:minmax(0,1fr) minmax(12rem,.43fr);align-items:center;gap:2rem;padding:1.4rem clamp(1rem,3vw,2rem);border:1px solid #d3dfe7;border-radius:9px;background:#f5f8fa}
+.receipt label{display:block;font-weight:600}.receipt button,.receipt select{font:inherit;color:inherit;border:1px solid #9caeba;background:#fff;border-radius:.35rem;min-height:2.7rem;padding:.4rem .85rem}
+.receipt button{cursor:pointer}.receipt button.primary{background:#205bbe;color:white;border-color:#205bbe}.receipt button:disabled{opacity:.5;cursor:default}.receipt :focus-visible{outline:3px solid #3373c5;outline-offset:3px}
+.issue select{margin:.25rem .7rem .4rem 0;max-width:100%}.issue figure{margin:0;text-align:center}.issue figure img{display:block;margin:0 auto .35rem;width:auto;height:10.25rem;max-width:100%;border:1px solid #c9d3de}
+.intake{margin:2rem 0 0}.receipt .actions{display:flex;flex-wrap:wrap;gap:.6rem}.receipt #message:empty{display:none}.receipt #message:not(:empty){margin:1rem 0;padding:.5rem .8rem;border-left:3px solid #3574bf;background:#edf3f8}
+.receipt #review,.receipt #finished{margin-top:1.7rem}.scan-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(13rem,21rem);gap:1.2rem;padding:1rem 0;border-top:1px solid #d7e1e7;align-items:start}
+.scan-row strong,.scan-row small{display:block}.scan-row small{color:#536879}.scan-row select{width:100%;margin:.25rem 0}.scan-row details{max-width:25rem}.scan-row summary{color:#235b97;cursor:pointer}.scan-row img{max-width:100%;display:block;margin:.4rem 0;border:1px solid #d3dfe7}
+.receipt .attention{color:#834a0c;font-weight:650}.receipt #finished{background:#f3f7f4;border:1px solid #b9cfc3;border-radius:8px;padding:1rem 1.4rem}.receipt #bundles{padding-left:1.3rem}.receipt [hidden],#print-sheets{display:none!important}
+@media(max-width:42rem){.issue{grid-template-columns:minmax(0,1fr) 5.5rem;gap:.6rem}.issue figure img{height:auto;width:100%}.issue figcaption{font-size:.85rem}.scan-row{grid-template-columns:1fr;gap:.4rem}.receipt{padding-top:1rem}}
+@page{size:A4 portrait;margin:0}
+@media print{html,body{margin:0!important;padding:0!important;background:white!important}body>*:not(#print-sheets){display:none!important}#print-sheets{display:block!important}#print-sheets img{display:block;width:210mm;height:296mm;object-fit:contain;break-after:page;page-break-after:always}#print-sheets img:last-child{break-after:auto;page-break-after:auto}}

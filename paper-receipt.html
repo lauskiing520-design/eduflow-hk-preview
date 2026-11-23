@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant-HK"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>紙卷收件｜EduFlow HK</title>
+<link rel="stylesheet" href="site.css?v=20261115-site1"><link rel="stylesheet" href="paper-receipt.css?v=6bdeb7b529">
+<script defer src="site-chrome.js?v=408defd1fe"></script><script defer src="assessment-data.js?v=19b205c908"></script>
+<script defer src="preview-preflight.js?v=b54aedbb1a"></script>
+<script defer src="vendor/qrcode-generator-1.4.4.js?v=18ae399f81"></script><script defer src="vendor/jsqr-1.4.0.js?v=bc40c8a151"></script>
+<script defer src="paper-receipt.js?v=503cd4a9c6"></script></head>
+<body data-site-page="assessment"><div data-site-header-placeholder></div>
+<main id="main-content" class="receipt"><a class="back" id="back" href="schools.html#try">返回學校試用</a>
+<header><h1>紙卷收件</h1><p id="context">正在準備示例答題紙…</p></header>
+<div id="tools" hidden><section class="issue" aria-labelledby="issue-heading"><div class="issue-controls">
+<h2 id="issue-heading">列印答題紙</h2><p>每張答題紙印有學生代號、頁碼和專屬二維碼。請與試題一併派發。</p>
+<label for="pupil">列印對象</label><select id="pupil"><option value="all">兩位示例學生</option></select>
+<button type="button" id="print" class="primary">列印答題紙</button>
+<p id="print-count" class="muted"></p></div>
+<figure><img id="preview" alt="帶學生代號及二維碼的答題紙首頁"><figcaption id="caption"></figcaption></figure></section>
+<section class="intake" aria-labelledby="intake-heading"><h2 id="intake-heading">核對收回的紙卷</h2>
+<p>試收一疊次序已打亂的示例頁，其中一張的二維碼被遮住。也可以選取拍下的示例答題紙，每張相片只放一頁。</p>
+<div class="actions"><button type="button" id="example" class="primary">試收打亂的示例頁</button>
+<button type="button" id="choose">選取示例紙卷相片</button><input type="file" id="images" accept="image/jpeg,image/png" multiple hidden></div>
+<p class="muted">支援 JPG、PNG。相片只在目前分頁處理，離開後會清除。</p>
+<p id="message" role="status" aria-live="polite"></p>
+<div id="review" hidden><h3 id="review-heading" tabindex="-1">逐頁核對</h3><div id="pages"></div><p id="tally" aria-live="polite"></p><button id="confirm" type="button" class="primary">確認收件</button></div>
+<div id="finished" hidden><h3 tabindex="-1" id="finished-heading">已確認收件</h3><p id="receipt-summary"></p><ul id="bundles"></ul><button id="revise" type="button">返回逐頁核對</button></div></section></div>
+</main><div data-site-footer-placeholder></div><div id="print-sheets" aria-hidden="true"></div></body></html>

@@ -4,15 +4,15 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>試改一份答卷｜EduFlow HK</title>
 <link rel="stylesheet" href="site.css?v=20261115-site1">
-<link rel="stylesheet" href="marking-demo.css?v=03dd3575d8">
-<script defer src="site-chrome.js?v=408defd1fe"></script><script defer src="marking-demo.js?v=d1ed92f777"></script>
+<link rel="stylesheet" href="marking-demo.css?v=42abd74976">
+<script defer src="site-chrome.js?v=408defd1fe"></script><script defer src="sample-review.js?v=7f5dc79714"></script><script defer src="marking-demo.js?v=e6b5776971"></script>
 </head>
 <body data-site-page="assessment">
 <div data-site-header-placeholder></div>
 <main class="markdemo" id="main-content">
 <a href="assessment.html#papers">返回試卷列表</a>
-<header><p>中一數學 · 改卷示範</p><h1>試改一份答卷</h1><a href="question-marking.html">全班按同一題批改</a><p>對照學生的解題步驟，確認分數與評語，再到學生頁比較兩次方程練習的成績。</p></header>
-<p class="demo-note">虛構答卷及預設 AI 建議。操作只在此頁示範，重新整理會重設。</p>
+<header><p>中一數學 · 改卷示範</p><h1>試改一份答卷</h1><p>核對學生的解題步驟，發布評分後，可切換到學生視角提交訂正或申請覆核。</p><nav class="review-links" aria-label="其他試用入口"><a href="question-marking.html">全班按同一題批改</a><a href="#student-review">查看示例學生成績</a></nav></header>
+<p class="demo-note" id="demoNote">本頁使用虛構答卷及預設評分建議。示例成績、訂正及教師回覆保存在目前瀏覽器。</p>
 <section id="teacherView" aria-label="教師覆核">
 <div class="demo-columns">
 <section class="manuscript" aria-labelledby="scriptTitle"><h2 id="scriptTitle">學生原稿 <small>模擬謄本</small></h2><p>示例學生 A · 第 1 題</p><h3>解方程 3(x − 2) = 12，寫出步驟。</h3><div class="ink-tools" role="group" aria-label="批註工具">
@@ -26,16 +26,29 @@
 <p>點「對照原稿」查看每項建議引用的作答。</p>
 <div id="rubric"></div>
 <label for="feedback">給學生的評語</label><textarea rows="3" maxlength="800" id="feedback">展開括號及移項正確。最後一步要把等式兩邊除以 3，請再檢查 18 ÷ 3。</textarea>
-<button type="submit" class="demo-primary">確認評分</button>
+<button type="submit" class="demo-primary">確認並發布示例評分</button>
+<button type="button" id="reloadGrade" hidden>載入最新發布的評分</button>
 </form></div></section>
-<section id="confirmed" hidden><h2 tabindex="-1">已確認示範評分</h2><p id="confirmedScore"></p><button type="button" class="demo-primary" id="studentButton">查看模擬學生結果</button> <button type="button" id="revise">返回修改評分</button></section>
+<section id="confirmed" hidden><h2 tabindex="-1">已發布示例評分</h2><p id="confirmedScore"></p><button type="button" class="demo-primary" id="studentButton">查看模擬學生結果</button> <button type="button" id="revise">返回修改評分</button></section>
 <section id="studentView" hidden><h2 tabindex="-1">學生收到的評改</h2><p>示例學生 A · 一元一次方程</p><h3 id="studentScore"></h3><ul id="breakdown"></ul><h3>老師評語</h3><p id="studentFeedback"></p>
+<section class="request-section" id="studentRequest"><h3>第 1 題 · 訂正與覆核</h3>
+<p>想補寫解法可交訂正；對原有評分有疑問可申請覆核。</p>
+<div id="studentThreads"></div>
+<form id="requestForm"><label for="requestType">要交給老師的是</label><select id="requestType"><option value="correction">我的訂正</option><option value="review">評分覆核申請</option></select>
+<label for="requestBody" id="requestLabel">訂正後的算式及理由</label><textarea id="requestBody" maxlength="1500" rows="3" required></textarea>
+<button type="submit" class="demo-primary" id="requestSend">提交給老師</button></form>
+<a href="#teacher-review">切換到教師視角處理</a></section>
 <section class="demo-topic-progress" aria-labelledby="progressTitle">
   <h3 id="progressTitle">一元一次方程的兩次練習</h3>
-  <p>兩次各有一道題。上次是虛構紀錄，這次採用你剛確認的評分。</p>
+  <p>兩次各有一道題。上次是虛構紀錄，這次採用最新發布的評分。</p>
   <dl><div><dt>上次練習</dt><dd id="previousScore"></dd></div>
       <div><dt>今次練習</dt><dd id="currentScore"></dd></div></dl>
   <p id="progressChange"></p>
 </section>
-<h3>批註原稿</h3><div id="studentPaper"></div><button type="button" class="demo-primary" id="printReport">列印評改報告</button> <button type="button" id="back">返回修改評分</button></section>
+<h3>批註原稿</h3><div id="studentPaper"></div>
+
+<button type="button" class="demo-primary" id="printReport">列印評改報告</button> <button type="button" id="back">返回修改評分</button></section>
+<section id="teacherRequests" class="scores" hidden><h2 tabindex="-1">學生訂正與覆核</h2><p>示例學生 A · 第 1 題　一元一次方程</p><div id="teacherThreads"></div>
+<nav class="review-links" aria-label="後續操作"><a href="#teacher-marking">開啟原稿及評分</a><a href="#student-review">查看學生收到的回覆</a></nav></section>
+<p id="reviewStatus" role="status" aria-live="polite"></p>
 </main><div data-site-footer-placeholder></div></body></html>

@@ -29,14 +29,14 @@
 .ink-tools{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
 .ink-tools [aria-pressed="true"]{background:#163b63;color:#fff}
 .ink-tools button:disabled{opacity:.5;cursor:default}
-#paper{width:100%;max-width:500px;display:block;border:1px solid #d6d9d4;background:#fcfaf5}
+:is(#paper,.published-paper){width:100%;max-width:500px;display:block;border:1px solid #d6d9d4;background:#fcfaf5}
 #paper.inking{touch-action:none;cursor:crosshair;user-select:none}
-#paper text{font:24px Georgia,serif;fill:#173761}
-#paper rect{fill:transparent;stroke:#d9d8cf}
+:is(#paper,.published-paper) text{font:24px Georgia,serif;fill:#173761}
+:is(#paper,.published-paper) rect{fill:transparent;stroke:#d9d8cf}
 #paper .selected rect{fill:#ffedbc;stroke:#916c29}
-#paper path{fill:none;stroke-linejoin:round;stroke-linecap:round}
-#paper .pen{stroke:#ad2629;stroke-width:3}
-#paper .highlight{stroke:#ffe53b;stroke-width:15;opacity:.48}
+:is(#paper,.published-paper) path{fill:none;stroke-linejoin:round;stroke-linecap:round}
+:is(#paper,.published-paper) .pen{stroke:#ad2629;stroke-width:3}
+:is(#paper,.published-paper) .highlight{stroke:#ffe53b;stroke-width:15;opacity:.48}
 #studentPaper{margin-bottom:20px}
 @media print{
   body:has(#studentView:not([hidden]))>:not(main){display:none!important}
@@ -44,5 +44,16 @@
   #studentView button{display:none!important}
   #studentView{padding:0;border:0}
   #studentPaper,#studentScore,#breakdown{break-inside:avoid}
-  #paper{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  :is(#paper,.published-paper){print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+.review-links{display:flex;gap:.75rem 1.3rem;flex-wrap:wrap;margin:1rem 0}
+.review-links a,.request-section>a{color:#164e88;text-underline-offset:3px}
+.request-section{border-top:1px solid #cad7e2;padding:1rem 0;margin:1.15rem 0;scroll-margin:4rem}
+.request-section form,.review-thread form{max-width:40rem;margin:1.1rem 0}
+.request-section form>label{display:block;font-weight:650;margin:.7rem 0 .35rem}
+.review-thread{border-left:3px solid #5b819e;background:#f4f7fa;padding:.75rem 1rem;margin:.85rem 0}
+.review-thread h4{margin:0;font-size:1.05rem}.review-thread small{color:#426078}.review-message{margin:.7rem 0}
+.review-message p{margin:.15rem 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.markdemo [hidden]{display:none!important}
+@media print{#studentRequest,.review-links,#reviewStatus{display:none!important}}
