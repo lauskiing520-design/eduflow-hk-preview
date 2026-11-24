@@ -75,12 +75,12 @@
     const options = (items, caption) => '<option value="">'+esc(caption)+'</option>'+[...new Set(items.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-HK')).map(t=>'<option>'+esc(t)+'</option>').join('');
     root.classList.add('question-bank');
     root.innerHTML = `<a class="sheet-back" href="${esc(backHref)}">返回試卷列表</a>
-      <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。 <a href="department-library.html">科組題目入庫及審核</a></p></header>
+      <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。 <a href="department-library.html">科組題目入庫及審核</a> · <a href="hk-question-sources.html">香港題源與工作紙</a></p></header>
       <div class="qb-layout"><section aria-label="題庫"><div class="qb-search"><label>搜尋題目<input type="search" data-qb="search" placeholder="輸入考點、題目或原卷名稱"></label>
       <div class="qb-filters"><label>年級<select aria-label="年級" data-qb="year">${options(papers.map(p=>p.year),'全部年級')}</select></label><label>科目<select aria-label="科目" data-qb="subject">${options(papers.map(p=>p.subject),'全部科目')}</select></label>
       <label>課題<select aria-label="課題" data-qb="topic"></select></label><label>題型<select aria-label="題型" data-qb="kind">${options(all.map(r=>kind(r.question)),'全部題型')}</select></label>
       <label>難度<select aria-label="難度" data-qb="difficulty">${options(all.map(r=>r.question.difficulty||'未標示'),'全部難度')}</select></label>
-      <label>題目特色<select aria-label="題目特色" data-qb="feature"><option value="">不限</option><option value="diagram">附圖</option><option value="variants">可換變式</option><option value="department">科組已審題</option></select></label></div></div>
+      <label>題目特色<select aria-label="題目特色" data-qb="feature"><option value="">不限</option><option value="diagram">附圖</option><option value="variants">可換變式</option><option value="department">科組已審題</option><option value="hk-new">香港課程新增試題</option></select></label></div></div>
       <div class="qb-result-head"><h2>題庫</h2><span data-qb="count" aria-live="polite"></span><button type="button" class="button qb-cart-jump" data-qb-action="cart">查看已選題目</button></div><div data-qb="rows"></div><div class="qb-pages" data-qb="paging"></div></section>
       <aside class="qb-cart"><h2>我的組卷</h2><label>試卷名稱<input data-qb="title" maxlength="120" placeholder="例如：中一方程小測"></label><label>建議時間（分鐘）<input data-qb="minutes" type="number" min="1" max="240"></label>
       <p data-qb="summary"></p><ol data-qb="chosen"></ol><button type="button" class="button primary" data-qb-action="finish">確認並預覽試卷</button>
@@ -107,6 +107,7 @@
         if (field('feature').value === 'diagram' && !q.diagram) return false;
         if (field('feature').value === 'variants' && !variants(paper.id,q.id)) return false;
         if (field('feature').value === 'department' && !paper.departmentItem) return false;
+        if (field('feature').value === 'hk-new' && paper.collection !== 'hk-junior-202611') return false;
         const haystack = [paper.year,paper.subject,paper.title,q.topic,q.prompt].join(' ').normalize('NFKC').toLocaleLowerCase();
         return terms.every(t=>haystack.includes(t));
       });
@@ -123,7 +124,7 @@
         const image = /^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram||'') ? '<img loading="lazy" alt="'+esc(q.diagramAlt||'試題配圖')+'" src="'+esc(q.diagram)+'">' : '';
         return `<article class="qb-item" data-paper="${esc(paper.id)}" data-question="${esc(base.id)}"><p class="qb-meta">${esc(paper.year)} · ${esc(paper.subject)} · ${esc(q.topic||kind(q))} · ${points(q)} 分${q.difficulty?' · 教學編排：'+esc(q.difficulty):''}</p><h3>${esc(q.prompt)}</h3>
           ${q.kind==='choice'?'<ol type="A">'+q.options.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ol>':''}${image}
-          <div class="qb-detail"><small>${esc(paper.title)} · 第 ${paper.questions.indexOf(base)+1} 題</small><details><summary>解法與評分點</summary><p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>'<li>'+esc(c.label)+'（'+c.max+' 分）</li>').join('')}</ul></details></div>
+          <div class="qb-detail">${window.EduFlowSources?.locator(q) || ''}<small>${esc(paper.title)} · 第 ${paper.questions.indexOf(base)+1} 題</small><details><summary>解法與評分點</summary><p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>'<li>'+esc(c.label)+'（'+c.max+' 分）</li>').join('')}</ul></details></div>
           <div class="qb-tools">${count?'<label>題目版本<select aria-label="題目版本" data-qb-version><option value="0">原題</option>'+Array.from({length:count},(_,i)=>'<option value="'+(i+1)+'" '+(v===i+1?'selected':'')+'>變式 '+(i+1)+'</option>').join('')+'</select></label>':''}
           <button type="button" class="button" data-qb-action="add" ${taken||wrongSubject||busy?'disabled':''}>${taken?'已選入':wrongSubject?'不同年級或科目':'選入試卷'}</button></div></article>`;
       }).join('') || '<p class="qb-empty">找不到符合條件的題目。請更改搜尋字詞或篩選條件。</p>';
@@ -173,7 +174,7 @@
       [field('year').value,field('subject').value] = course;
       field('feature').value='variants';
     }
-    if (collection==='department') field('feature').value='department';
+    if (collection==='department' || collection==='hk-new') field('feature').value=collection;
     refreshTopics();
     if (available) {
       const previous=Number(fromVersion);

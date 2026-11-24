@@ -25,10 +25,15 @@
   }
   function locator(question) {
     const source = question.source;
+    if (source?.type === 'original' && source.dataReference) {
+      return '<small class="field-note">'+link(source.dataReference, '數據來源 · '+source.dataTitle)+'</small>';
+    }
     if (source?.type !== 'adapted' || !source.reference) return '';
     const parts = [source.book ? '冊 '+source.book : '', source.exercise ? '練習 '+source.exercise : '',
                    source.item ? (typeof source.item === 'number' ? '第 '+source.item+' 題' : source.item) : ''].filter(Boolean);
-    return '<small class="field-note">'+link(source.reference, '原題出處 · '+(parts.join(' · ') || source.title))+'</small>';
+    const license = source.license ? ' · '+link(source.licenseUrl, source.license) : '';
+    return '<small class="field-note">'+link(source.reference, '原題出處 · '+(parts.join(' · ') || source.title))+
+      (source.author ? ' · '+esc(source.author) : '')+license+'</small>';
   }
   window.EduFlowSources = {credit, locator};
 })();
