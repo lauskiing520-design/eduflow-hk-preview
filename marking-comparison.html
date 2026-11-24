@@ -4,9 +4,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>教師與 AI 對評｜EduFlow HK</title>
 <link rel="stylesheet" href="site.css?v=20261115-site1">
-<link rel="stylesheet" href="marking-comparison.css?v=f0ba22d641">
+<link rel="stylesheet" href="marking-comparison.css?v=63e95eed4c">
 <script defer src="site-chrome.js?v=408defd1fe"></script>
-<script defer src="marking-comparison.js?v=248b25855b"></script>
+<script defer src="marking-comparison.js?v=202c06a080"></script>
 </head>
 <body data-site-page="assessment">
 <div data-site-header-placeholder></div>
@@ -19,7 +19,7 @@
   </header>
   <div class="workspace">
     <article class="source" aria-labelledby="source-title">
-      <p class="context">示例答卷 · 第 1 題</p>
+      <p class="context">示例學生 2B-01 · 第 1 題</p>
       <h2 id="source-title">折後售價與盈利率</h2>
       <p>背包的成本是 240 元，標價是 360 元。店舖以八折售出。求實際售價、盈利及盈利佔成本的百分比，並寫出算式。</p>
       <h3>學生作答謄本</h3>
@@ -52,11 +52,11 @@
         <p id="followup-count" role="status"></p>
         <ol id="differences"></ol>
         <details class="release">
-          <summary>示例學生成績</summary>
+          <summary>學生已收到的成績</summary>
           <p id="student-score"></p>
           <p id="release-note"></p>
-          <button type="button" id="publish">重新發布示例成績</button>
         </details>
+        <button type="button" class="primary" id="publish">預覽班級發布名單</button>
         <button type="button" id="retry">重新試評這份示例</button>
       </section>
       <section id="followup" hidden aria-labelledby="followup-title">
@@ -90,6 +90,16 @@
       </section>
     </div>
   </div>
+  <section id="release-preview" aria-labelledby="release-title" hidden>
+    <a class="back" href="#results">返回逐項對照</a>
+    <p class="context">中二 B 班 · 折後售價與盈利率</p>
+    <h1 id="release-title" tabindex="-1">發布成績前核對</h1>
+    <p id="release-overview"></p>
+    <fieldset><legend>選擇這次收到成績的學生</legend><div id="release-ready"></div></fieldset>
+    <details id="release-remaining"><summary>其他學生</summary><div id="release-skipped"></div></details>
+    <div class="buttons"><button type="button" class="primary" id="confirm-release" disabled>確認發布（0 人）</button><a href="#results">返回批改</a></div>
+    <p role="status" id="release-receipt"></p>
+  </section>
   <p class="scope">此頁使用虛構答卷及預設 AI 建議，不會上傳資料。試評記錄只保存在目前的瀏覽器。</p>
   <p id="storage-warning" role="status" hidden>目前無法儲存到瀏覽器，離開後會失去這次試評。</p>
 </main>

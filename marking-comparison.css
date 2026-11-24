@@ -50,6 +50,18 @@ body{margin:0;background:#f5f8fb;color:#18364f;font:1rem/1.65 var(--site-font)}
 .comparison .action{display:inline-block;padding:8px 12px;border:1px solid #8da2b8;border-radius:5px;text-decoration:none}
 .comparison .release{border-block:1px solid #c9d6e1;padding:12px 0;margin:16px 0}
 .comparison .release summary{font-weight:650;cursor:pointer}
+.comparison #release-remaining{padding:12px 0;margin:10px 0 16px;border-bottom:1px solid #c9d6e1}
+.comparison #release-remaining summary{cursor:pointer;font-weight:650}
+.comparison #release-preview{max-width:780px;margin:0 auto;padding:clamp(18px,3vw,32px);background:white;border:1px solid #c9d6e1;border-radius:8px}
+.comparison #release-preview .context{margin:14px 0 0}
+.comparison #release-preview legend{font-weight:650}
+.comparison .recipient{padding:14px 0;border-bottom:1px solid #d6e0e9}
+.comparison .recipient label{min-height:44px;display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:650}
+.comparison .recipient input{width:1.1rem;height:1.1rem}
+.comparison .recipient p,.comparison .recipient ul{margin:4px 0}
+.comparison .recipient details summary{display:inline-block;cursor:pointer;text-decoration:underline;text-underline-offset:.15em}
+.comparison #release-receipt{margin-bottom:0;font-weight:600}
+.comparison #report>.primary{margin:0 6px 8px 0}
 .comparison .release p{margin:8px 0 12px}
 .comparison button:disabled{opacity:.6;cursor:default}
 .comparison #formal-editor label{display:block;font-weight:650;margin-bottom:6px}

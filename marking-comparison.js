@@ -13,9 +13,11 @@
   const grades = new Set(['0','1','unreadable']);
   const officialScores = new Set(['0','1','pending']);
   const firstPublication = {price:'1',profit:'1',base:'1',rate:'0'};
+  const peerScores = {price:'1',profit:'1',base:'1',rate:'1'};
+  const batchKey = storageKey+'-release-selection';
   const empty = () => ({
     scores:{}, exposure:'', revealed:false, seenHere:false,
-    official:{...firstPublication}, published:{...firstPublication}, decisions:{}, adjusted:{}
+    official:{...firstPublication}, published:{...firstPublication}, peerPublished:null, decisions:{}, adjusted:{}
   });
 
   function restore() {
@@ -34,6 +36,7 @@
         if(raw.adjusted?.[id]===true)result.adjusted[id]=true;
       }
       result.seenHere = raw.seenHere === true;
+      if(points.every(p=>['0','1'].includes(raw.peerPublished?.[p.id])))result.peerPublished={...raw.peerPublished};
       result.exposure = ['seen','unseen'].includes(raw.exposure) ? raw.exposure : '';
       result.revealed = raw.revealed === true && result.exposure !== '' &&
         points.every(point => point.id in result.scores);
@@ -102,7 +105,77 @@
     el('student-score').textContent='示例學生目前可見 '+total+' / 4 分。';
     el('release-note').textContent=!changes?'正式評分與上次發布相同。':
       '有 '+changes+' 項正式評分與上次發布不同。'+(ungraded?'尚有評分點待判讀。':'可把最新分數發回示例學生。');
-    el('publish').disabled=!changes||!!ungraded;
+  }
+  function classList(s){
+    const students=[
+      {id:'2B-01',next:s.official,previous:s.published},
+      {id:'2B-08',next:peerScores,previous:s.peerPublished},
+      {id:'2B-17',next:null,previous:null}
+    ];
+    return students.map(student=>{
+      const {next,previous}=student;
+      const changed=next?points.filter(p=>!previous||next[p.id]!==previous[p.id]):[];
+      const held=!next||points.some(p=>next[p.id]==='pending');
+      const kind=held?'待確認':!previous?'首次發布':changed.length?'修訂成績':'已發布';
+      return {...student,changed,kind,ready:!held&&changed.length>0};
+    });
+  }
+  const total=marks=>points.reduce((sum,p)=>sum+Number(marks[p.id]),0)+' / 4 分';
+  const signature=students=>JSON.stringify(students.map(({id,next,previous})=>[id,next,previous]));
+  let selected=new Set(),batchVersion='',batchNotice='',submitting=false;
+  function keepSelection(){
+    try{sessionStorage.setItem(batchKey,JSON.stringify({version:batchVersion,students:[...selected]}));}catch{}
+  }
+  function setSelection(students){
+    const version=signature(students);
+    if(batchVersion===version)return;
+    let stored;
+    try{stored=JSON.parse(sessionStorage.getItem(batchKey));}catch{}
+    if(batchVersion&&selected.size)batchNotice='班級成績已更新，請重新核對並選擇學生。';
+    batchVersion=version;selected=new Set();
+    if(stored?.version===version&&Array.isArray(stored.students)){
+      selected=new Set(students.filter(s=>s.ready&&stored.students.includes(s.id)).map(s=>s.id));
+    }
+    keepSelection();
+  }
+  function updateSelection(){
+    el('confirm-release').disabled=submitting||!selected.size;
+    el('confirm-release').textContent='確認發布（'+selected.size+' 人）';
+  }
+  function element(tag,text){
+    const node=document.createElement(tag);node.textContent=text;return node;
+  }
+  function renderBatch(){
+    const students=classList(state);
+    setSelection(students);
+    const ready=students.filter(s=>s.ready);
+    el('release-overview').textContent=ready.length?'本次可發布 '+ready.length+' 份。打開各人的評分明細，再勾選收件人。':'目前沒有可發布的新成績。';
+    el('release-ready').replaceChildren();el('release-skipped').replaceChildren();
+    for(const s of students){
+      if(!s.ready){
+        const reason=s.kind==='待確認'?(s.previous?'待確認 · 仍可見 '+total(s.previous):'待確認 · 尚未收到成績'):'已發布 '+total(s.previous)+' · 成績相同';
+        el('release-skipped').append(element('p',s.id+'　'+reason));
+        continue;
+      }
+      const row=element('div','');row.className='recipient';
+      const label=element('label',''),check=document.createElement('input');
+      check.type='checkbox';check.value=s.id;check.checked=selected.has(s.id);
+      check.onchange=()=>{
+        if(check.checked)selected.add(s.id);else selected.delete(s.id);
+        keepSelection();updateSelection();
+      };
+      label.append(check,s.id+'　'+s.kind);
+      row.append(label,element('p',s.previous?'上次 '+total(s.previous)+' → 本次 '+total(s.next):'本次 '+total(s.next)));
+      const detail=element('details',''),list=element('ul','');
+      detail.append(element('summary','第 1 題 · '+s.changed.length+' 個評分點'+(s.previous?'有修訂':'')));
+      for(const p of s.changed)list.append(element('li',p.label+'：'+(s.previous?s.previous[p.id]+' → ':'')+s.next[p.id]+' 分'));
+      detail.append(list);row.append(detail);el('release-ready').append(row);
+    }
+    el('release-remaining').open=!ready.length;
+    el('release-remaining').querySelector('summary').textContent='其他學生（'+(students.length-ready.length)+' 人）';
+    el('release-preview').querySelector('fieldset').hidden=!ready.length;
+    el('release-receipt').textContent=batchNotice;
+    updateSelection();
   }
   function renderReport() {
     const list = el('differences');
@@ -178,6 +251,11 @@
   }
   function draw() {
     const view=current();
+    const inRelease=location.hash==='#release'&&state.revealed;
+    document.querySelector('.workspace').hidden=inRelease;
+    document.querySelector('.intro').hidden=inRelease;
+    el('release-preview').hidden=!inRelease;
+    if(inRelease){renderBatch();return;}
     form.hidden = state.revealed;
     report.hidden = !state.revealed || !!view;
     el('followup').hidden=!view;
@@ -198,7 +276,7 @@
     el('report-title').focus();
   });
   el('retry').addEventListener('click', () => {
-    state = {...empty(), seenHere:true, exposure:'seen', official:state.official, published:state.published};
+    state = {...empty(), seenHere:true, exposure:'seen', official:state.official, published:state.published, peerPublished:state.peerPublished};
     history.replaceState(null,'',location.pathname+location.search);
     save(); draw();
     el('grade-' + points[0].id).focus();
@@ -231,13 +309,37 @@
     save();draw();el('resolve').focus();
   };
   el('publish').onclick=()=>{
-    if(el('publish').disabled)return;
-    state.published={...state.official};
-    save();draw();el('student-score').setAttribute('tabindex','-1');el('student-score').focus();
+    batchNotice='';location.hash='release';
+  };
+  el('confirm-release').onclick=async()=>{
+    if(submitting||!selected.size)return;
+    const version=batchVersion,recipients=[...selected];
+    submitting=true;updateSelection();
+    function publish(){
+      try{if(localStorage.getItem(storageKey)!==null)state=restore();}catch{}
+      const students=classList(state);
+      if(!state.revealed||version!==signature(students)){
+        selected.clear();keepSelection();
+        batchNotice='班級成績已更新，請重新核對並選擇學生。';return;
+      }
+      const batch=students.filter(s=>s.ready&&recipients.includes(s.id));
+      if(!batch.length)return;
+      for(const s of batch){
+        if(s.id==='2B-01')state.published={...s.next};
+        else if(s.id==='2B-08')state.peerPublished={...s.next};
+      }
+      selected.clear();keepSelection();save();
+      batchNotice='已發布給 '+batch.map(s=>s.id).join('、')+'，共 '+batch.length+' 人。';
+    }
+    try{
+      if(navigator.locks)await navigator.locks.request(batchKey,publish);
+      else publish();
+    }catch{batchNotice='未能發布，請重新核對名單再試。';}
+    finally{submitting=false;draw();el('release-receipt').tabIndex=-1;el('release-receipt').focus();}
   };
   window.addEventListener('hashchange',()=>{
     draw();
-    if(state.revealed)(current()?el('followup-title'):el('report-title')).focus();
+    if(state.revealed)(location.hash==='#release'?el('release-title'):current()?el('followup-title'):el('report-title')).focus();
   });
   window.addEventListener('storage', event => {
     if (event.key === storageKey) { state = restore(); draw(); }
