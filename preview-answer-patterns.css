@@ -2,6 +2,26 @@
 .trial-answer-report header {margin-top:2rem}
 .trial-answer-report h1 {margin:.3rem 0;font-size:clamp(1.8rem,4vw,2.5rem)}
 .trial-answer-report .trial-report-note {padding:1rem 1.2rem;background:#eff5fa;border-left:3px solid #386998}
+.report-course-links {display:flex;flex-wrap:wrap;gap:.25rem 1rem}
+.report-course-links a {display:inline-flex;align-items:center;min-height:44px}
+.report-course-links a[aria-current] {color:#16334a;font-weight:700;text-decoration:none}
+.report-priorities {margin:1.4rem 0 2rem;padding:1.25rem clamp(1rem,3vw,1.75rem);background:#fff;border:1px solid #cad9e3;border-radius:10px}
+.report-priorities h2 {margin:0;font-size:1.4rem}
+.report-priorities>p {margin:.45rem 0;color:#43596a}
+.report-priorities ol {list-style:none;padding:0;margin:.85rem 0 0}
+.report-priorities li {border-top:1px solid #d7e2e9;padding:.9rem 0 .35rem}
+.priority-heading {display:flex;align-items:baseline;justify-content:space-between;gap:.15rem 1rem;flex-wrap:wrap}
+.priority-heading h3,.report-priorities li p {margin:0}
+.priority-heading h3 {font-size:1.05rem}
+.priority-heading span {color:#305c74;font-weight:650}
+.report-priorities li .priority-prompt {margin:.35rem 0;color:#3f5669;line-height:1.6}
+.priority-prompt strong {margin-right:.3rem;color:#1c3f58}
+.report-priorities li button {color:#2051a0;text-decoration:underline;text-underline-offset:.2em;font:inherit;font-weight:650;min-height:44px;background:none;border:0;padding:0;cursor:pointer}
+.report-priorities details {border-top:1px solid #d7e2e9}
+.report-priorities summary {cursor:pointer;font-weight:650;line-height:1.5;padding:.7rem 0}
+.report-priorities .priority-brief {white-space:pre-wrap;line-height:1.65;margin:.25rem 0 .5rem}
+#report-question-body li small {display:block;font-size:.95rem;color:#415b6b}
+#report-question-body h2[tabindex] {scroll-margin-top:5rem}
 .trial-answer-report label {display:block;font-weight:650;margin:1.4rem 0 .4rem}
 .trial-answer-report select {width:min(100%,40rem);min-height:44px;font:inherit;color:inherit;padding:.5rem}
 #report-question-body {margin-top:1.6rem;padding:clamp(1rem,3vw,2rem);background:white;border:1px solid #cfdae3;border-radius:10px}
