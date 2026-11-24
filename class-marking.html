@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="class-marking.css?v=6cffb014bc">
   <script defer src="site-chrome.js?v=408defd1fe"></script>
   <script defer src="ink-suspects.js?v=fb744c1f39"></script>
-  <script defer src="class-marking.js?v=4a059e5caf"></script>
+  <script defer src="class-marking.js?v=720b11050a"></script>
 </head>
 <body data-site-page="marking">
 <div data-site-header-placeholder></div>
@@ -18,7 +18,10 @@
   <nav class="cm-tabs" aria-label="改卷工具"><a href="#ink">手寫疑點</a><a href="#groups">同題分組批改</a><a href="#amend">修訂評分準則</a></nav>
   <div id="cm-work"></div>
   <p id="cm-status" role="status" aria-live="polite"></p>
-  <footer><button class="cm-quiet" id="cm-reset" type="button">重設這次試用</button></footer>
+  <footer><button class="cm-quiet" id="cm-reset" type="button" aria-controls="cm-reset-choice" aria-expanded="false">重設這次試用</button>
+    <div id="cm-reset-choice" hidden><p>這會清除本頁六位示例學生的核對及試改記錄。</p>
+      <button id="cm-reset-confirm" type="button">確認重設</button> <button id="cm-reset-cancel" type="button">保留記錄</button></div>
+  </footer>
   <noscript>請啟用 JavaScript 載入示例作業。</noscript>
 </main>
 <div data-site-footer-placeholder></div>

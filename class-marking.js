@@ -170,7 +170,17 @@
   document.querySelector('.cm-tabs').addEventListener('click',e=>{
     if(e.target.closest('a')&&activeInk?.hasPendingEdit()){e.preventDefault();tell('請先套用或放棄目前的修改。');}
   });
-  $('cm-reset').onclick=()=>{if(confirm('清除此瀏覽器內這份班級作業的試改記錄？')&&update(d=>{const rev=d.revision;Object.assign(d,fresh(),{revision:rev});})){groupKey='';groupQuestion=0;basis='answer';requestedIssue=null;jump('ink');tell('已重新開始這份作業。');}};
+  function showReset(open){
+    $('cm-reset-choice').hidden=!open;$('cm-reset').setAttribute('aria-expanded',String(open));
+    $(open?'cm-reset-cancel':'cm-reset').focus();
+  }
+  $('cm-reset').onclick=()=>showReset($('cm-reset-choice').hidden);
+  $('cm-reset-cancel').onclick=()=>showReset(false);
+  $('cm-reset-confirm').onclick=()=>{
+    if(!update(d=>{const rev=d.revision;Object.assign(d,fresh(),{revision:rev});}))return;
+    groupKey='';groupQuestion=0;basis='answer';requestedIssue=null;showReset(false);jump('ink');
+    tell('已重新開始這份作業。');
+  };
   window.addEventListener('hashchange',()=>{render();tell('');});
   window.addEventListener('storage',event=>{if(event.key===key)tell('這份作業已在另一分頁更新。請重新載入以繼續。');});
   render();
