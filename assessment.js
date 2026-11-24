@@ -37,7 +37,7 @@ function hub(filter='bank'){
  return `<div class="exam-library"><header class="workspace-title"><div><h1>試卷列表</h1><p>選用現成試卷，或從題庫逐題挑選，組成適合自己班級的一份卷。</p></div>${href('question-bank','從題庫組卷',true)}</header><nav class="library-tabs" aria-label="篩選試卷">${tabs}</nav>${rows}</div>`;
 }
 
-function keyContent(p){return `<section class="teacher-key"><h2>教師參考答案及評分準則</h2><p>接受等值方法及合理文字表達；以下不是逐字匹配的短答答案。</p>${p.questions.map((q,i)=>`<details><summary>第 ${i+1} 題 · ${maxQuestion(q)} 分</summary><p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>`<li>${esc(c.label)}（${c.max} 分；${c.mode==='auto'?'可按客觀答案比對':'教師覆核'}）</li>`).join('')}</ul></details>`).join('')}</section>`}
+function keyContent(p){return `<section class="teacher-key"><h2>教師參考答案及評分準則</h2><p>接受等值方法及合理文字表達；以下不是逐字匹配的短答答案。</p>${p.questions.map((q,i)=>`<details><summary>第 ${i+1} 題 · ${maxQuestion(q)} 分</summary>${q.referenceAnswer ? `<p><strong>參考答案</strong>　${esc(q.referenceAnswer)}</p>` : ''}<p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>`<li>${esc(c.label)}（${c.max} 分；${c.mode==='auto'?'可按客觀答案比對':'教師覆核'}）</li>`).join('')}</ul></details>`).join('')}</section>`}
 function printablePaperPage(p){return `${heading('列印空白試卷',paperName(p),'paper/'+p.id,'返回試卷預覽')}<div class="page-actions"><button type="button" class="button primary" data-action="print-paper">列印空白試卷</button></div><article class="print-paper"><header><p>${esc(p.year)}${esc(p.subject)} · ${p.questions[0]?.source?.type==='adapted'?esc(p.description):'試卷'}</p><h2>${esc(p.title)}</h2><p>${p.questions.length} 題，共 ${C.totalMax(p)} 分，建議 ${p.minutes} 分鐘</p>${sourceCredit(p)}<p class="print-candidate">姓名：_______________　班別：_______　日期：_______</p></header>${p.questions.map((q,i)=>`<section class="paper-question"><h3>${i+1}. ${esc(q.prompt)} <small>（${maxQuestion(q)} 分）</small></h3>${sourceLocator(p,q)}${questionFigure(q)}${q.kind==='choice'?`<ol type="A">${q.options.map(v=>`<li>${esc(v)}</li>`).join('')}</ol>`:`<div class="paper-answer-space ${q.working||q.kind==='text'?'tall':''}"></div>`}</section>`).join('')}</article>`}
 
 const sourceCredit = window.EduFlowSources.credit;
@@ -88,6 +88,7 @@ function render(){
  else if(view==='papers'){title='試卷列表';html=hub(key)}
  else if((view==='paper'||view==='ready')&&p){title=paperName(p);html=paperPage(p,room)}
  else if(view==='preflight'&&p){title='出卷前檢查';html=trialPreflight.page(p,room)}
+ else if(view==='verify'&&EduAnswerVerification.eligible(p)){title='答案驗算';html=EduPreviewVerification.page(p,room,esc)}
  else if(view==='key'&&p){title='參考答案及評分準則';html=heading(p.title,p.year+' · '+p.subject,'paper/'+p.id,'返回試卷預覽')+keyContent(p)}
  else if(view==='print'&&p){title='列印空白試卷';html=printablePaperPage(p)}
  else if(view==='marking'){location.replace('marking-demo.html');return}
@@ -97,6 +98,11 @@ function render(){
  if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p,questionFigure,trialFollowups,room,position);
  if(view==='sample-followup')trialFollowups.student($('#assessmentApp'),key,Number(num));
  if(view==='preflight'&&p) trialPreflight.mount(p,room,copy=>{registerPaper(copy);previewClasses.carryDue(p.id,copy.id,room)});
+ if(view==='verify'&&p) EduPreviewVerification.mount($('#assessmentApp'),p,room,room ? position : num,update=>{
+   const copy=trialPreflight.saveVerified(p,update,registerPaper);
+   previewClasses.carryDue(p.id,copy.id,room);
+   location.hash='paper/'+copy.id+(room?'/'+room:'');
+ });
  const assignmentForm=$('#sample-assignment');
  if(assignmentForm)previewClasses.restoreDue(assignmentForm);
  document.title=title+'｜EduFlow HK';
