@@ -4,9 +4,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>教師與 AI 對評｜EduFlow HK</title>
 <link rel="stylesheet" href="site.css?v=20261115-site1">
-<link rel="stylesheet" href="marking-comparison.css?v=348ae128e8">
+<link rel="stylesheet" href="marking-comparison.css?v=f0ba22d641">
 <script defer src="site-chrome.js?v=408defd1fe"></script>
-<script defer src="marking-comparison.js?v=742e0975de"></script>
+<script defer src="marking-comparison.js?v=248b25855b"></script>
 </head>
 <body data-site-page="assessment">
 <div data-site-header-placeholder></div>
@@ -15,7 +15,7 @@
   <header class="intro">
     <p>中二數學 · 百分法</p>
     <h1>教師與 AI 對評</h1>
-    <p>先根據學生的算式獨立給分，再逐項查看 AI 建議和兩者的差異。</p>
+    <p>先按學生的算式獨立給分，再核對分差，決定是否調整正式評分。</p>
   </header>
   <div class="workspace">
     <article class="source" aria-labelledby="source-title">
@@ -49,8 +49,44 @@
         <h2 id="report-title" tabindex="-1">逐項對照結果</h2>
         <p id="basis"></p>
         <p id="summary"></p>
+        <p id="followup-count" role="status"></p>
         <ol id="differences"></ol>
+        <details class="release">
+          <summary>示例學生成績</summary>
+          <p id="student-score"></p>
+          <p id="release-note"></p>
+          <button type="button" id="publish">重新發布示例成績</button>
+        </details>
         <button type="button" id="retry">重新試評這份示例</button>
+      </section>
+      <section id="followup" hidden aria-labelledby="followup-title">
+        <a href="#results" class="back">返回逐項對照</a>
+        <p class="context" id="point-context"></p>
+        <h2 id="followup-title" tabindex="-1"></h2>
+        <blockquote class="transcript"><span id="line-number"></span><p id="student-line"></p></blockquote>
+        <dl class="point-scores">
+          <div><dt>獨立評分</dt><dd id="independent-score"></dd></div>
+          <div><dt>AI 建議</dt><dd id="ai-score"></dd></div>
+          <div><dt>現有正式分</dt><dd id="official-score"></dd></div>
+        </dl>
+        <p id="point-evidence"></p>
+        <div id="review-controls">
+          <p id="decision-status" role="status"></p>
+          <div class="buttons">
+            <button type="button" class="primary" id="resolve"></button>
+            <a class="action" id="edit-link">修改正式評分</a>
+            <button type="button" id="reopen">重新跟進此項</button>
+          </div>
+        </div>
+        <div id="formal-editor" hidden>
+          <label for="new-mark">此項正式評分（滿分 1 分）</label>
+          <select id="new-mark"><option value="1">1 分</option><option value="0">0 分</option><option value="pending">待判讀</option></select>
+          <p>儲存後會返回這個評分點，供你確認處理結果。</p>
+          <div class="buttons">
+            <button type="button" class="primary" id="save-mark">儲存正式評分</button>
+            <a id="cancel-edit">取消修改</a>
+          </div>
+        </div>
       </section>
     </div>
   </div>

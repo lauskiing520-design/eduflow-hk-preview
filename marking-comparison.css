@@ -38,5 +38,20 @@ body{margin:0;background:#f5f8fb;color:#18364f;font:1rem/1.65 var(--site-font)}
 .comparison #differences small{font-size:.94rem;color:#435d74}
 .comparison #differences .flag{color:#84500c}
 .comparison .scope{margin:22px 0 0}
+.comparison .point-link{display:inline-block;font-weight:650;padding:7px 0}
+.comparison #followup-count{font-weight:650;margin:16px 0 6px}
+.comparison #followup .context{margin:18px 0 4px}
+.comparison .transcript{margin:18px 0;background:#f0f5fa;border-left:3px solid #4275a7;padding:11px 15px}
+.comparison .transcript span,.comparison .point-scores dt{color:#486076;font-size:.95rem}
+.comparison .transcript p{margin:2px 0 0;font-weight:600}
+.comparison .point-scores{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:18px 0}
+.comparison .point-scores dd{margin:4px 0;font-weight:650}
+.comparison .buttons{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px}
+.comparison .action{display:inline-block;padding:8px 12px;border:1px solid #8da2b8;border-radius:5px;text-decoration:none}
+.comparison .release{border-block:1px solid #c9d6e1;padding:12px 0;margin:16px 0}
+.comparison .release summary{font-weight:650;cursor:pointer}
+.comparison .release p{margin:8px 0 12px}
+.comparison button:disabled{opacity:.6;cursor:default}
+.comparison #formal-editor label{display:block;font-weight:650;margin-bottom:6px}
 @media(max-width:740px){.comparison .workspace{grid-template-columns:1fr}.comparison{padding-top:16px}.comparison .intro{margin:16px 0}.comparison .working{margin-bottom:0}}
 @media(max-width:380px){.comparison .criterion{grid-template-columns:1fr;gap:5px}.comparison select{justify-self:start}}
