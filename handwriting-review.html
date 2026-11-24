@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>核對手寫疑點｜EduFlow HK</title>
+  <link rel="stylesheet" href="site.css?v=20261115-site1">
+  <link rel="stylesheet" href="ink-suspects.css?v=0111a210bf">
+  <link rel="stylesheet" href="handwriting-review.css?v=5e789fa31a">
+  <script defer src="site-chrome.js?v=408defd1fe"></script>
+  <script defer src="assessment-core.js?v=0f1978f9d2"></script>
+  <script defer src="ink-suspects.js?v=fb744c1f39"></script>
+  <script defer src="handwriting-review.js?v=f6e088b0aa"></script>
+</head>
+<body data-site-page="assessment">
+  <div data-site-header-placeholder></div>
+  <main class="ink-trial" id="main-content">
+    <a href="schools.html" class="ink-back">返回學校試用</a>
+    <header><p>中一數學 · 示例答卷</p><h1>核對手寫疑點</h1>
+      <p>點原稿上的方框，放大筆跡並核對識別文字。這張虛構答卷和預設識別結果供試用，修改保存在目前瀏覽器。</p></header>
+    <div class="ink-work">
+      <section class="ink-sheet" aria-labelledby="ink-sheet-title">
+        <div class="ink-section-heading"><h2 id="ink-sheet-title">學生原稿</h2><a href="handwriting-sample.webp" target="_blank" rel="noopener">開啟整頁原稿</a></div>
+        <div class="ink-page"><img src="handwriting-sample.webp" width="1448" height="1086"
+          alt="示例原稿，第 1 題是手寫方程答案，第 2 題是手寫冪式。">
+          <div id="ink-hotspots"></div>
+        </div>
+      </section>
+      <section class="ink-review" id="ink-review" aria-labelledby="ink-review-title">
+        <div class="ink-section-heading"><h2 id="ink-review-title">識別核對</h2><span id="ink-progress"></span></div>
+        <div class="ink-switch" role="group" aria-label="選擇要核對的題目">
+          <button type="button" data-question="0">第 1 題 · 負號</button>
+          <button type="button" data-question="1">第 2 題 · 指數</button>
+        </div>
+        <div id="ink-detail"></div>
+        <div class="ink-actions"><button type="button" class="ink-primary" id="ink-next"></button></div>
+      </section>
+      <section class="ink-marking" id="ink-marking" hidden aria-labelledby="ink-mark-title">
+        <div class="ink-section-heading"><h2 id="ink-mark-title" tabindex="-1">批改這份答卷</h2><output id="ink-total"></output></div>
+        <p>示例按已核對的答案計分；老師可逐題調整。</p>
+        <form id="ink-grade-form"><div id="ink-grade-rows"></div>
+          <div class="ink-actions"><button class="ink-primary" type="submit">確認示例評分</button>
+          <button type="button" id="ink-return">返回核對原稿</button></div>
+        </form>
+        <p id="ink-done"></p>
+        <button type="button" id="ink-restart" hidden>重新試用這份示例</button>
+      </section>
+    </div>
+    <p role="status" aria-live="polite" class="ink-trial-status" id="ink-trial-status"></p>
+    <noscript>請啟用 JavaScript 核對這份示例答卷。</noscript>
+  </main>
+  <div data-site-footer-placeholder></div>
+</body></html>

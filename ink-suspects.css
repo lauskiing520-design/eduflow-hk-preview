@@ -1,0 +1,26 @@
+.ink-suspects {margin:1rem 0;color:#19334b;overflow-wrap:anywhere}
+.ink-suspects [hidden] {display:none!important}
+.ink-suspects h4 {font-size:1.05rem;line-height:1.4;margin:.1rem 0 .5rem}
+.ink-symbols,.ink-original-links,.ink-detail-title,.ink-editor-actions {display:flex;gap:.5rem .8rem;align-items:center;flex-wrap:wrap}
+.ink-symbols button,.ink-paper button,.ink-detail-title button {font:inherit;font-size:.95rem;line-height:1.4;cursor:pointer;border:1px solid #a7b9c9;background:white;color:#204766;border-radius:.35rem;min-height:2.5rem;padding:.4rem .75rem}
+.ink-symbols button[aria-expanded=true] {border-color:#215ab2;background:#edf4ff;color:#173d76}
+.ink-detail {border:1px solid #bccbd9;background:#fff;border-radius:.45rem;margin-top:.7rem;padding:clamp(.75rem,2vw,1.2rem)}
+.ink-detail-title {justify-content:space-between}
+.ink-detail-title h4 {margin:0}
+.ink-paper {margin:.55rem 0 1rem}
+.ink-paper canvas {display:block;width:100%;height:auto;max-width:50rem;border:1px solid #c4ccd0;background:#f3f4f2}
+.ink-suspects .ink-location,.ink-suspects .ink-transcription {font-size:.96rem;color:#425971;margin:.5rem 0;line-height:1.55;white-space:pre-wrap}
+.ink-original-links {margin-top:.45rem}
+.ink-original-links a {color:#19549a;text-decoration:underline;text-underline-offset:.17rem}
+.ink-editor-area label {display:grid;gap:.4rem;font-weight:600}
+.ink-editor-area :is(input,textarea) {box-sizing:border-box;width:100%;line-height:1.6;min-width:0;font:inherit;font-weight:400;color:#172f43;border:1px solid #879daf;border-radius:.35rem;padding:.4rem .65rem}
+.ink-editor-area input {max-width:16rem}
+.ink-editor-actions {margin-top:.7rem}
+.ink-suspects .ink-review-status,.ink-suspects .ink-editor-error {margin:.45rem 0;font-size:.95rem}
+.ink-suspects .ink-editor-error {color:#8b341f}
+.ink-suspects p:empty {display:none}
+.ink-page-map {position:relative}
+.ink-page-map>a,.ink-page-map img {display:block}
+.ink-page-map img {width:100%;height:auto;margin:0}
+.ink-page-map .ink-page-target {position:absolute;transform:translate(-50%,-50%);min-width:1.4rem;min-height:1.4rem;padding:0;cursor:zoom-in;border:2px dashed #a94b1c;border-radius:.2rem;background:transparent}
+.ink-page-map .ink-page-target:focus-visible {outline:3px solid #1e56a7;outline-offset:3px}
