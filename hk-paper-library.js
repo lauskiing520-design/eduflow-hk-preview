@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const language = window.EduFlowMathsLanguage;
   const catalog = new Map(window.AssessmentData.papers.map(paper => [paper.id, paper]));
   const library = document.querySelector('.hk-library');
   const get = selector => library.querySelector(selector);
@@ -23,7 +24,10 @@
   function renderQuestion() {
     const q = currentPaper.questions[index];
     const body = get('.hk-excerpt');
-    body.replaceChildren(element('p', q.prompt, 'hk-prompt'));
+    const en = language.entry(currentPaper, q);
+    const prompt = element('p', undefined, 'hk-prompt');
+    prompt.innerHTML = language.text(q.prompt,en?.prompt);
+    body.replaceChildren(prompt);
     if (q.options) {
       const choices = element('ol');
       choices.type = 'A';
@@ -54,7 +58,7 @@
       credit.append(notice);
       body.append(credit);
     }
-    get('.hk-topic').textContent = q.topic || '試題';
+    get('.hk-topic').innerHTML = language.text(q.topic || '試題',en?.topic);
     get('.hk-page').textContent = '第 ' + (index + 1) + ' / ' + currentPaper.questions.length + ' 題';
     get('.hk-question-score').textContent = marks(q) + ' 分';
     get('[data-step="-1"]').disabled = index === 0;
@@ -66,7 +70,8 @@
     index = 0;
     picker.value = id;
     for (const button of list.children) button.setAttribute('aria-pressed', String(button.dataset.id === id));
-    get('.hk-paper-title').textContent = currentPaper.title;
+    get('.hk-paper-title').innerHTML = language.text(currentPaper.title,language.title(currentPaper));
+    get('.hk-paper-language').innerHTML = language.paperControls(currentPaper);
     const count = currentPaper.questions.length;
     const total = currentPaper.questions.reduce((sum, q) => sum + marks(q), 0);
     get('.hk-paper-meta').textContent = count + ' 題　·　' + total + ' 分　·　' + currentPaper.minutes + ' 分鐘';
@@ -96,9 +101,10 @@
       const button = element('button');
       button.type = 'button';
       button.dataset.id = paper.id;
-      button.append(element('span', paper.title), element('small', paper.questions.length + ' 題 · ' + paper.minutes + ' 分鐘'));
+      const languageNote = language.available(paper) ? ' · 中英雙語' : '';
+      button.append(element('span', paper.title), element('small', paper.questions.length + ' 題 · ' + paper.minutes + ' 分鐘' + languageNote));
       list.append(button);
-      picker.add(new Option(paper.title, paper.id));
+      picker.add(new Option(paper.title + languageNote, paper.id));
     }
     selectPaper(papers[0].id);
   }

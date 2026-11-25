@@ -1,0 +1,25 @@
+.maths-language {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 12px 0 18px;
+  color: #364f63;
+  font-size: 1rem;
+}
+.maths-language > span { margin-right: 8px; font-weight: 600; }
+.maths-language button {
+  color: #23557b;
+  background: white;
+  border: 1px solid #afbeca;
+  border-radius: 5px;
+  font: inherit;
+  line-height: 1.25;
+  padding: 8px 14px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.maths-language button[aria-pressed="true"] { color: white; background: #214d73; border-color: #214d73; }
+.maths-language button:focus-visible { outline: 3px solid #427bde; outline-offset: 2px; }
+.maths-language small { margin-left: 5px; font-size: .9rem; }
+@media print { .maths-language { display: none !important; } }

@@ -14,9 +14,21 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
   const roomById = new Map(rooms.map(r => [r.id, r]));
   let records = [], persistent = true;
 
+  function roster(room) {
+    return Array.from({length:room.pupils}, (_,index) => {
+      const number=String(index+1).padStart(2,'0');
+      return {id:room.id+'-'+number,label:'示例學生 '+number};
+    });
+  }
+  function recipients(row) {
+    const members=roster(roomById.get(row.room));
+    return row.studentIds ? members.filter(s=>row.studentIds.includes(s.id)) : members;
+  }
   function validRecord(row) {
     const room = roomById.get(row?.room);
     return room && paperById.get(row.paper)?.year === room.year &&
+      (row.studentIds === undefined || (Array.isArray(row.studentIds) && row.studentIds.length>0 &&
+        recipients(row).length===row.studentIds.length)) &&
       (row.due === '' || /^\d{4}-\d{2}-\d{2}$/.test(row.due));
   }
   function read() {
@@ -53,6 +65,7 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
       `<p><a id="class-preflight" href="#preflight/${esc(p.id)}/${selected.id}">查看出卷前檢查</a></p><form id="sample-assignment" class="sample-assignment" data-paper="${esc(p.id)}">
       <header><p>${esc(p.year)} · ${esc(p.subject)} · ${p.questions.length} 題</p><h2>${esc(p.title)}</h2></header>
       <fieldset><legend>派給哪一班？</legend><div class="sample-room-options">${options}</div></fieldset>
+      <div data-dispatch-recipients></div>
       <label class="sample-due">截止日期（選填）<input type="date" name="due"></label>
       <div class="actions"><button class="button primary" type="submit">確認派卷</button></div></form>`;
   }
@@ -90,42 +103,57 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     const row = records.find(item => item.room===roomId && item.paper===paperId);
     if (!row) return missingAssignment(roomId,paperId);
     const room = roomById.get(row.room), p = paperById.get(row.paper);
+    const members=recipients(row), whole=members.length===room.pupils;
     return heading('已派給'+room.name,note(),'classes','班級與作業')+
       `<section class="sample-assignment"><header><p>${room.name} · ${esc(p.subject)}</p><h2>${esc(p.title)}</h2></header>
       <p>${p.questions.length} 題 · ${esc(dueLabel(row))}</p>
-      <div class="actions">${href('sample-student/'+room.id,'查看學生收到的作業',true)}<a class="button" href="paper-receipt.html?room=${room.id}&amp;paper=${encodeURIComponent(p.id)}">列印答題紙及收件</a>${hasReport(p)?href('sample-analysis/'+p.id+'/'+room.id,'看本卷的示例錯答'):''}${href('assign/'+p.id+'/'+room.id,'更改截止日期')}</div></section>`;
+      <p>派發對象：${whole?'全班（'+members.length+' 人）':members.map(s=>s.label).join('、')+'（'+members.length+' 人）'}</p>
+      <div class="actions">${href('sample-student/'+room.id+(whole?'':'/'+members[0].id),'查看學生收到的作業',true)}<a class="button" href="paper-receipt.html?room=${room.id}&amp;paper=${encodeURIComponent(p.id)}${whole?'':'&amp;pupils='+members.map(s=>s.id.slice(-2)).join(',')}">列印答題紙及收件</a>${whole && hasReport(p)?href('sample-analysis/'+p.id+'/'+room.id,'看本卷的示例錯答'):''}${href('assign/'+p.id+'/'+room.id,whole?'更改截止日期':'補派或更改截止日期')}</div></section>`;
   }
-  function student(roomId) {
+  function student(roomId,studentId) {
     const room = roomById.get(roomId);
     if (!room) return heading('找不到這個示例班級','請返回班級與作業重新選擇。','classes','班級與作業');
-    const items = records.filter(row => row.room===room.id);
+    const members=roster(room), person=studentId?members.find(s=>s.id===studentId):members[0];
+    if(!person) return heading('找不到這位示例學生',room.name,'sample-student/'+room.id,'返回班級學生頁面');
+    const items = records.filter(row => row.room===room.id && recipients(row).some(s=>s.id===person.id));
     return heading('我的作業',room.name+' · 示例學生視角','classes','返回班級與作業')+
-      `<section class="sample-rooms">${items.length ? items.map(row => {
+      `<label class="sample-paper-picker">查看哪位示例學生的作業？<select id="sample-student-id" data-room="${room.id}">${members.map(s=>`<option value="${s.id}" ${s.id===person.id?'selected':''}>${s.label}</option>`).join('')}</select></label><section class="sample-rooms">${items.length ? items.map(row => {
         const p = paperById.get(row.paper);
-        return `<article class="sample-class-head"><div><h2>${esc(p.title)}</h2><p>${esc(p.subject)} · ${p.questions.length} 題 · ${esc(dueLabel(row))}</p></div>${href('sample-paper/'+room.id+'/'+p.id,'查看試題')}</article>`;
+        return `<article class="sample-class-head"><div><h2>${esc(p.title)}</h2><p>${esc(p.subject)} · ${p.questions.length} 題 · ${esc(dueLabel(row))}</p></div>${href('sample-paper/'+room.id+'/'+p.id+(studentId?'/'+person.id:''),'查看試題')}</article>`;
       }).join('') : '<article><h2>暫無作業</h2><p>老師派卷後，這裡會列出試卷和截止日期。</p>'+href('class-papers/'+room.id,'返回教師視角選卷',true)+'</article>'}</section>`;
   }
-  function studentPaper(roomId,paperId) {
-    if (!records.some(row => row.room===roomId && row.paper===paperId)) return missingAssignment(roomId,paperId);
+  function studentPaper(roomId,paperId,studentId) {
+    const row=records.find(row=>row.room===roomId && row.paper===paperId);
+    if (!row) return missingAssignment(roomId,paperId);
+    const person=studentId||roster(roomById.get(roomId))[0].id;
+    const back='sample-student/'+roomId+(studentId?'/'+encodeURIComponent(studentId):'');
+    if(!recipients(row).some(s=>s.id===person))return heading('這位學生沒有收到此卷','可返回學生頁查看已獲派的作業。',back,'返回我的作業');
     const p = paperById.get(paperId), room = roomById.get(roomId);
-    return heading(p.title,room.name+' · '+p.questions.length+' 題 · 學生試題預覽（只供閱覽）','sample-student/'+room.id,'返回我的作業')+
-      sourceCredit(p)+'<section class="paper-screen-questions" aria-label="試題">'+
+    return heading(p.title,room.name+' · '+p.questions.length+' 題 · 學生試題預覽（只供閱覽）',back,'返回我的作業',window.EduFlowMathsLanguage.title(p))+
+      window.EduFlowMathsLanguage.paperControls(p)+sourceCredit(p)+'<section class="paper-screen-questions" aria-label="試題">'+
       p.questions.map((q,i) => sheetQuestion(p,q,i)).join('')+'</section>';
   }
   document.addEventListener('change', event => {
+    if(event.target.id==='sample-student-id') location.hash='sample-student/'+event.target.dataset.room+'/'+event.target.value;
     if (event.target.matches('#sample-assignment input[name="room"]')) restoreDue(event.target.form);
-    if (event.target.matches('#sample-assignment input[name="due"]')) updateSubmit(event.target.form);
+    if (event.target.matches('#sample-assignment [name="due"], #sample-assignment [name="recipient"], #sample-assignment [name="recipientScope"]')) updateSubmit(event.target.form);
   });
   function existing(form) {
     return records.find(x => x.room===form.elements.room.value && x.paper===form.dataset.paper);
   }
   function updateSubmit(form) {
     const row = existing(form);
-    form.querySelector('button[type="submit"]').textContent = !row?'確認派卷':row.due===form.elements.due.value?'查看已派作業':'更新截止日期';
+    const selected=EduFlowClassRecipients.selected(form);
+    const extending=row?.studentIds && (!selected || selected.some(id=>!row.studentIds.includes(id)));
+    form.querySelector('button[type="submit"]').textContent = !row?'確認派卷':extending?'確認補派':row.due===form.elements.due.value?'查看已派作業':'更新截止日期';
   }
   function restoreDue(form) {
     const row = existing(form);
     const room = form.elements.room.value;
+    const panel=form.querySelector('[data-dispatch-recipients]'), members=roster(roomById.get(room));
+    panel.innerHTML=row && !row.studentIds ? '<p>已派發至全班（'+members.length+' 人）</p>' : EduFlowClassRecipients.fields(members,esc,row?.studentIds);
+    if(row?.studentIds) for(const box of panel.querySelectorAll('input:checked')) box.disabled=true;
+    EduFlowClassRecipients.sync(form);
     form.elements.due.value = dueDrafts.get(form.dataset.paper+'/'+room) ?? row?.due ?? '';
     document.getElementById('class-preflight').href='#preflight/'+form.dataset.paper+'/'+room;
     updateSubmit(form);
@@ -150,14 +178,20 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     event.preventDefault();
     read();
     const row = {room:form.elements.room.value,paper:form.dataset.paper,due:form.elements.due.value};
+    EduFlowClassRecipients.sync(form);
+    const prior=existing(form), selected=EduFlowClassRecipients.selected(form);
+    if(selected && (!prior || prior.studentIds)){
+      const ids=[...new Set([...(prior?.studentIds||[]),...selected])].sort();
+      if(ids.length!==roomById.get(row.room)?.pupils) row.studentIds=ids;
+    }
     if (!validRecord(row) || !form.reportValidity()) return;
-    if (existing(form)?.due===row.due) { location.hash=detailRoute(row); return; }
+    if (prior?.due===row.due && JSON.stringify(prior.studentIds)===JSON.stringify(row.studentIds)) { location.hash=detailRoute(row); return; }
     records = [row,...records.filter(x => x.room!==row.room || x.paper!==row.paper)];
     try { localStorage.setItem(recordPrefix+row.room+'/'+row.paper,JSON.stringify(row)); persistent=true; } catch { persistent=false; }
     dueDrafts.delete(row.paper+'/'+row.room);
     location.hash = detailRoute(row);
   });
-  function route(view,key,num) {
+  function route(view,key,num,person) {
     if (!['assign','classes','class-papers','sample-homework','sample-student','sample-paper'].includes(view)) return null;
     read();
     switch (view) {
@@ -165,8 +199,8 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
       case 'classes': return ['班級與作業',classList()];
       case 'class-papers': return ['為班級選卷',classPapers(roomById.get(key))];
       case 'sample-homework': return ['派卷記錄',receipt(key,num)];
-      case 'sample-student': return ['我的作業',student(key)];
-      case 'sample-paper': return ['學生試題預覽',studentPaper(key,num)];
+      case 'sample-student': return ['我的作業',student(key,num)];
+      case 'sample-paper': return ['學生試題預覽',studentPaper(key,num,person)];
     }
   }
   function refreshRecords() {

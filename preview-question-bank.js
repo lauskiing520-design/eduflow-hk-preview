@@ -5,9 +5,44 @@ window.createPreviewQuestionBank = function (catalogue) {
   const paperPrefix = 'eduflow-hk-preview:assembled:v1:';
   const validId = /^assembled-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
   const seen = new Set();
+  const practicePrefix = 'eduflow-hk-preview:equation-practice:v1:';
+  const practiceDraftKey = 'eduflow-hk-preview:equation-practice-draft:v1';
+  const practicePapers = new Map();
   const blank = () => ({id:'assembled-'+crypto.randomUUID(),revision:0,title:'',minutes:30,refs:[]});
   const read = key => JSON.parse(localStorage.getItem(key));
-  const library = () => [...catalogue,...window.EduDepartmentSample.approved()];
+  const library = () => [...catalogue,...practicePapers.values(),...window.EduDepartmentSample.approved()];
+  function practicePaper(data) {
+    if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(data?.requestId) ||
+        typeof data.title!=='string' || !data.title.trim() || data.title.length>120 ||
+        !Array.isArray(data.questions) || ![1,2].includes(data.questions.length)) throw Error('再練卷的資料未齊。');
+    const questions=data.questions.map((item,i)=>({...EduEquationPractice.verifyCandidate(data.sourcePrompt,item),id:'q'+(i+1)}));
+    if(new Set(questions.map(q=>q.expected)).size!==questions.length)throw Error('兩道同類題的答案須有分別。');
+    return {id:'practice-'+data.requestId,title:data.title.trim(),year:'中一',subject:'數學',custom:true,
+      description:'老師選編的一元一次方程再練卷',minutes:questions.length*5,questions};
+  }
+  function savePractice(payload) {
+    const data={...payload,questions:payload.questions.map(({prompt,referenceAnswer})=>({prompt,referenceAnswer}))};
+    const paper=practicePaper(data);
+    write(practicePrefix+data.requestId,data);
+    return {paper};
+  }
+  function readPracticeDraft() {
+    return {draft:read(practiceDraftKey) || {revision:0,sourcePrompt:'',title:'',candidates:[],selected:[],mode:''}};
+  }
+  async function writePracticeDraft(data) {
+    function update() {
+      const current=readPracticeDraft().draft;
+      if(data.revision!==current.revision) {
+        const error=Error('另一個分頁已更改這份草稿。');
+        error.code='equation_draft_conflict';
+        throw error;
+      }
+      const draft={...data,revision:current.revision+1};
+      write(practiceDraftKey,draft);
+      return {draft};
+    }
+    return navigator.locks ? navigator.locks.request(practiceDraftKey,update) : update();
+  }
   function valid(draft) {
     return validId.test(draft?.id) && Number.isSafeInteger(draft.revision) && draft.revision >= 0 &&
       typeof draft.title === 'string' && draft.title.length<=120 && Number.isInteger(draft.minutes) &&
@@ -57,6 +92,16 @@ window.createPreviewQuestionBank = function (catalogue) {
     let keys;
     try { keys = Object.keys(localStorage); } catch { return; }
     for (const key of keys) {
+      if (!key.startsWith(practicePrefix) || practicePapers.has('practice-'+key.slice(practicePrefix.length))) continue;
+      try {
+        const data=read(key);
+        if(practicePrefix+data?.requestId!==key)continue;
+        const paper=practicePaper(data);
+        practicePapers.set(paper.id,paper);
+        register(paper);
+      } catch { /* Ignore a malformed or incomplete saved copy. */ }
+    }
+    for (const key of keys) {
       if (!key.startsWith(paperPrefix)) continue;
       const id = key.slice(paperPrefix.length);
       if (!validId.test(id) || seen.has(id)) continue;
@@ -90,5 +135,5 @@ window.createPreviewQuestionBank = function (catalogue) {
     EduFlowQuestionBank.mount(root,{papers:library(),draft:draft || blank(),collection,questionRef,save:saveHere,finish:next=>finish(next,key),
       onCreated,savedLabel:'選題草稿已儲存在此瀏覽器',backHref:'#papers'});
   }
-  return {sync,mount};
+  return {sync,mount,savePractice,readPracticeDraft,writePracticeDraft};
 };

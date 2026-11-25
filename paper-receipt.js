@@ -10,6 +10,7 @@
   preflight.sync(p => catalogue.push(p));
   const paper = catalogue.find(p => p.id === (params.get('paper') || 's1-equations-a'));
   const group = params.get('room') || (paper?.year === '中二' ? '2a' : '1a');
+  const pupilNumbers=params.has('pupils')?params.get('pupils').split(','):null;
   const sheets = [], byMarker = new Map();
   const rowsPerPage = 6;
   let batches = [], busy = false, pageCount, storageKey, savedText, previousValues = null, photoSession = null;
@@ -281,19 +282,27 @@
   }
   async function start(){
     if(!paper||!Object.hasOwn(groups,group)||!groups[group].startsWith(paper.year))throw Error();
+    if(pupilNumbers){
+      const limit={'1a':26,'1b':25,'2a':27,'2b':26}[group];
+      if(pupilNumbers.length>limit||new Set(pupilNumbers).size!==pupilNumbers.length||
+        pupilNumbers.some(n=>!/^\d{2}$/.test(n)||Number(n)<1||Number(n)>limit))throw Error();
+      students.splice(0,students.length,...pupilNumbers.map(n=>'示例學生 '+n));
+      $('pupil').options[0].textContent='全部已選學生（'+students.length+' 人）';
+    }
     pageCount=Math.ceil(paper.questions.length/rowsPerPage);
     const version=[group,paper.id,...paper.questions.map(q=>q.prompt)].join('|');
     const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))).slice(0,12).map(n=>n.toString(16).padStart(2,'0')).join('');
     for(let i=0;i<students.length;i++){
       $('pupil').add(new Option(students[i],String(i)));
       for(let page=1;page<=pageCount;page++){
-        const marker='EDUTRIAL:'+await digest(version+'|'+i+'|'+page);
+        const identity=pupilNumbers?'pupil-'+pupilNumbers[i]:i;
+        const marker='EDUTRIAL:'+await digest(version+'|'+identity+'|'+page);
         const s={student:i,page,marker,first:(page-1)*rowsPerPage+1,last:Math.min(paper.questions.length,page*rowsPerPage)};
         s.printImage=drawSheet(s).toDataURL('image/png');sheets.push(s);byMarker.set(marker,s);
       }
     }
-    storageKey='eduflow-hk-preview:paper-receipt:v1:'+sheets[0].marker;
-    $('context').textContent=groups[group]+' · '+paper.title+' · 兩位虛構學生';
+    storageKey='eduflow-hk-preview:paper-receipt:v1:'+sheets[0].marker+(pupilNumbers?':'+pupilNumbers.join(','):'');
+    $('context').textContent=groups[group]+' · '+paper.title+' · '+students.length+' 位虛構學生';
     if(params.has('paper')&&params.has('room')){
       $('back').href='assessment.html#sample-homework/'+group+'/'+encodeURIComponent(paper.id);$('back').textContent='返回派卷記錄';
     }

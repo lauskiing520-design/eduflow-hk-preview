@@ -51,7 +51,8 @@ globalThis.EduAnswerVerification = (() => {
       '<div class="av-fields"><label>題目<textarea data-av-prompt rows="3" maxlength="4000"></textarea></label>' +
       '<label><span data-av-ref-label>參考答案</span><textarea data-av-reference rows="2" maxlength="4000"></textarea></label></div>' +
       '<div class="av-actions"><button type="button" class="button primary" data-av-run>重新驗算</button>' +
-      '<button type="button" class="button" data-av-reset hidden>還原這題</button></div>' +
+      '<button type="button" class="button" data-av-reset hidden>還原這題</button>' +
+      (globalThis.EduEquationPracticeUI?.suitable(paper) ? '<button type="button" class="button" data-av-practice>以目前題目出同類題</button>' : '')+'</div>' +
       '<div data-av-result aria-live="polite"></div><div class="av-save" data-av-save-area hidden>' +
       '<button type="button" class="button" data-av-save></button></div><p role="status" data-av-message></p></section>';
   }
@@ -107,6 +108,7 @@ globalThis.EduAnswerVerification = (() => {
     }
     function select() {
       const q = paper.questions[index];
+      if(el('practice'))el('practice').hidden=Boolean(q.source?.type==='adapted' || q.diagram || q.figure);
       picker.value = String(index);
       el('ref-label').textContent = '參考答案' + (q.unit ? '（' + q.unit + '）' : '');
       el('prompt').value = states[index].prompt;
@@ -145,6 +147,7 @@ globalThis.EduAnswerVerification = (() => {
       state.result = runCheck(paper.questions[index], state.prompt, state.ref);
       refreshResult();
     });
+    el('practice')?.addEventListener('click',()=>globalThis.EduEquationPracticeUI.open(el('prompt').value));
     el('reset').addEventListener('click', () => {
       const q = paper.questions[index];
       states[index] = {prompt:q.prompt, ref:reference(q), result:runCheck(q, q.prompt, reference(q))};

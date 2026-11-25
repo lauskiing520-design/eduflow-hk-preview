@@ -68,6 +68,8 @@
   function mount(root, {papers, draft, save, finish, onCreated, collection, questionRef, savedLabel='草稿已儲存至伺服器', backHref='#papers'}) {
     const data = clone(draft);
     const all = papers.flatMap(paper => paper.questions.map(question => ({paper,question})));
+    const language = window.EduFlowMathsLanguage;
+    const english = new Map(all.map(({paper,question}) => [question,language.entry(paper,question)]));
     const pageSize = 8;
     const versionChoices = new Map();
     let scopedPaper;
@@ -82,7 +84,7 @@
       <label>課題<select aria-label="課題" data-qb="topic"></select></label><label>題型<select aria-label="題型" data-qb="kind">${options(all.map(r=>kind(r.question)),'全部題型')}</select></label>
       <label>難度<select aria-label="難度" data-qb="difficulty">${options(all.map(r=>r.question.difficulty||'未標示'),'全部難度')}</select></label>
       <label>題目特色<select aria-label="題目特色" data-qb="feature"><option value="">不限</option><option value="diagram">附圖</option><option value="variants">可換變式</option><option value="department">科組已審題</option><option value="hk-new">香港課程新增試題</option></select></label></div></div>
-      <div class="qb-result-head"><h2>題庫</h2><span data-qb="count" aria-live="polite"></span><button type="button" class="button qb-cart-jump" data-qb-action="cart">查看已選題目</button></div><div data-qb="rows"></div><div class="qb-pages" data-qb="paging"></div></section>
+      <div data-qb="language"></div><div class="qb-result-head"><h2>題庫</h2><span data-qb="count" aria-live="polite"></span><button type="button" class="button qb-cart-jump" data-qb-action="cart">查看已選題目</button></div><div data-qb="rows"></div><div class="qb-pages" data-qb="paging"></div></section>
       <aside class="qb-cart"><h2>我的組卷</h2><label>試卷名稱<input data-qb="title" maxlength="120" placeholder="例如：中一方程小測"></label><label>建議時間（分鐘）<input data-qb="minutes" type="number" min="1" max="240"></label>
       <p data-qb="summary"></p><ol data-qb="chosen"></ol><button type="button" class="button primary" data-qb-action="finish">確認並預覽試卷</button>
       <p class="qb-state" role="status" data-qb="state"></p><button class="text-button" data-qb-action="retry" hidden>重試儲存</button><button class="text-button" data-qb-action="reload" hidden>讀取最新草稿</button></aside></div>`;
@@ -110,23 +112,28 @@
         if (field('feature').value === 'variants' && !variants(paper.id,q.id)) return false;
         if (field('feature').value === 'department' && !paper.departmentItem) return false;
         if (field('feature').value === 'hk-new' && paper.collection !== 'hk-junior-202611') return false;
-        const haystack = [paper.year,paper.subject,paper.title,q.topic,q.prompt].join(' ').normalize('NFKC').toLocaleLowerCase();
+        const en = english.get(q);
+        const haystack = [paper.year,paper.subject,paper.title,q.topic,q.prompt,en && language.title(paper),en?.topic,en?.prompt].join(' ').normalize('NFKC').toLocaleLowerCase();
         return terms.every(t=>haystack.includes(t));
       });
       const pages = Math.ceil(list.length/pageSize);
       page = Math.max(0,Math.min(page,pages-1));
       field('count').textContent = list.length+' 題';
       const first = papers.find(p=>p.id===data.refs[0]?.paperId);
-      field('rows').innerHTML = list.slice(page*pageSize,(page+1)*pageSize).map(({paper,question:base})=>{
+      const visible = list.slice(page*pageSize,(page+1)*pageSize);
+      const englishCount = visible.filter(({paper,question}) => english.get(question) && !versionChoices.get(keyOf({paperId:paper.id,questionId:question.id}))).length;
+      field('language').innerHTML = englishCount ? language.controls(englishCount !== visible.length) : '';
+      field('rows').innerHTML = visible.map(({paper,question:base})=>{
         const key = keyOf({paperId:paper.id,questionId:base.id}), v = versionChoices.get(key) || 0;
         const generator = variants(paper.id,base.id);
         const q = v ? generator.get(paper.id,base.id,v) : base, count = generator?.count(paper.id,base.id) || 0;
+        const en = v ? null : english.get(base);
         const taken = data.refs.some(ref=>ref.paperId===paper.id && ref.questionId===base.id && (ref.variant||0)===v);
         const wrongSubject = first && (first.subject!==paper.subject || first.year!==paper.year);
         const image = /^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/.test(q.diagram||'') ? '<img loading="lazy" alt="'+esc(q.diagramAlt||'試題配圖')+'" src="'+esc(q.diagram)+'">' : '';
-        return `<article class="qb-item" data-paper="${esc(paper.id)}" data-question="${esc(base.id)}"><p class="qb-meta">${esc(paper.year)} · ${esc(paper.subject)} · ${esc(q.topic||kind(q))} · ${points(q)} 分${q.difficulty?' · 教學編排：'+esc(q.difficulty):''}</p><h3>${esc(q.prompt)}</h3>
-          ${q.kind==='choice'?'<ol type="A">'+q.options.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ol>':''}${image}
-          <div class="qb-detail">${window.EduFlowSources?.locator(q) || ''}<small>${esc(paper.title)} · 第 ${paper.questions.indexOf(base)+1} 題</small><details><summary>解法與評分點</summary><p>${esc(q.solution)}</p><ul>${q.criteria.map(c=>'<li>'+esc(c.label)+'（'+c.max+' 分）</li>').join('')}</ul></details></div>
+        return `<article class="qb-item" data-paper="${esc(paper.id)}" data-question="${esc(base.id)}"><p class="qb-meta">${esc(paper.year)} · ${esc(paper.subject)} · ${language.text(q.topic||kind(q),en?.topic)} · ${points(q)} 分${q.difficulty?' · 教學編排：'+esc(q.difficulty):''}</p><h3>${language.text(q.prompt,en?.prompt)}</h3>
+          ${q.kind==='choice'?'<ol type="A">'+q.options.map((v,i)=>'<li>'+language.text(v,en?.options?.[i])+'</li>').join('')+'</ol>':''}${image}
+          <div class="qb-detail">${window.EduFlowSources?.locator(q) || ''}<small>${language.text(paper.title,language.title(paper))} · 第 ${paper.questions.indexOf(base)+1} 題</small><details><summary>解法與評分點</summary><p>${language.text(q.solution,en?.solution)}</p><ul>${q.criteria.map(c=>'<li>'+language.text(c.label,en?.criteria[c.id])+' '+language.text('（'+c.max+' 分）',en && '('+c.max+' '+(c.max===1?'mark':'marks')+')')+'</li>').join('')}</ul></details></div>
           <div class="qb-tools">${count?'<label>題目版本<select aria-label="題目版本" data-qb-version><option value="0">原題</option>'+Array.from({length:count},(_,i)=>'<option value="'+(i+1)+'" '+(v===i+1?'selected':'')+'>變式 '+(i+1)+'</option>').join('')+'</select></label>':''}
           <button type="button" class="button" data-qb-action="add" ${taken||wrongSubject||busy?'disabled':''}>${taken?'已選入':wrongSubject?'不同年級或科目':'選入試卷'}</button></div></article>`;
       }).join('') || '<p class="qb-empty">找不到符合條件的題目。請更改搜尋字詞或篩選條件。</p>';
@@ -135,7 +142,7 @@
     function drawCart() {
       const rows = selected(papers,data.refs);
       field('summary').textContent = rows.length ? rows[0].paper.year+rows[0].paper.subject+' · '+rows.length+' 題 · '+rows.reduce((sum,r)=>sum+points(r.question),0)+' 分' : '尚未選題';
-      field('chosen').innerHTML = rows.map(({number,question,ref})=>`<li><div><strong>${number}.</strong> ${esc(question.prompt)}${ref.variant?'（變式 '+ref.variant+'）':''}</div><div class="qb-order">${[['up','上移',number===1],['down','下移',number===rows.length],['remove','移除',false]].map(([action,label,disabled])=>'<button type="button" data-qb-action="'+action+'" data-index="'+(number-1)+'" aria-label="'+label+'第 '+number+' 題" '+(disabled||busy?'disabled':'')+'>'+label+'</button>').join('')}</div></li>`).join('');
+      field('chosen').innerHTML = rows.map(({number,question,ref,paper})=>`<li><div><strong>${number}.</strong> ${language.text(question.prompt,ref.variant ? null : english.get(question)?.prompt)}${ref.variant?'（變式 '+ref.variant+'）':''}</div><div class="qb-order">${[['up','上移',number===1],['down','下移',number===rows.length],['remove','移除',false]].map(([action,label,disabled])=>'<button type="button" data-qb-action="'+action+'" data-index="'+(number-1)+'" aria-label="'+label+'第 '+number+' 題" '+(disabled||busy?'disabled':'')+'>'+label+'</button>').join('')}</div></li>`).join('');
       $('[data-qb-action="finish"]').disabled = busy || !rows.length || !data.title.trim() || conflict;
     }
     async function persist() {
@@ -179,7 +186,7 @@
     if (source && (!qid || available)) {
       scopedPaper = source;
       field('scope').hidden = false;
-      field('scope-title').textContent = source.title;
+      field('scope-title').innerHTML = language.text(source.title,language.title(source));
       field('year').value = source.year;
       field('subject').value = source.subject;
     }
