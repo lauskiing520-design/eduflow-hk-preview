@@ -2,6 +2,7 @@
 .qb-header{margin:24px 0}.qb-header h1{margin:0 0 8px;font-size:clamp(1.55rem,3vw,2rem)}.qb-header p{margin:0;color:#465d70}
 .qb-layout{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(275px,1fr);align-items:start;gap:24px}
 .qb-search,.qb-cart{background:#fff;padding:20px;border:1px solid #cbd9e4;border-radius:10px}
+.qb-scope{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;border-bottom:1px solid #d5dfe7;padding-bottom:12px;margin-bottom:12px}.qb-scope[hidden]{display:none}
 .question-bank label{display:grid;gap:4px;min-width:0;color:#324f64;font-size:.95rem;font-weight:600}
 .question-bank input,.question-bank select{box-sizing:border-box;width:100%;min-width:0;min-height:42px;border:1px solid #adc1cf;border-radius:5px;background:#fff;color:#172f46;padding:7px 10px;font:inherit}
 .qb-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}

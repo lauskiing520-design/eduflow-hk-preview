@@ -70,13 +70,14 @@
     const all = papers.flatMap(paper => paper.questions.map(question => ({paper,question})));
     const pageSize = 8;
     const versionChoices = new Map();
+    let scopedPaper;
     let page = 0, timer, inFlight, busy = false, dirty = false, conflict = false;
     const $ = sel => root.querySelector(sel);
     const options = (items, caption) => '<option value="">'+esc(caption)+'</option>'+[...new Set(items.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-HK')).map(t=>'<option>'+esc(t)+'</option>').join('');
     root.classList.add('question-bank');
     root.innerHTML = `<a class="sheet-back" href="${esc(backHref)}">返回試卷列表</a>
       <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。 <a href="department-library.html">科組題目入庫及審核</a> · <a href="hk-question-sources.html">香港初中試卷庫</a></p></header>
-      <div class="qb-layout"><section aria-label="題庫"><div class="qb-search"><label>搜尋題目<input type="search" data-qb="search" placeholder="輸入考點、題目或原卷名稱"></label>
+      <div class="qb-layout"><section aria-label="題庫"><div class="qb-search"><div class="qb-scope" data-qb="scope" hidden><strong data-qb="scope-title"></strong><button type="button" class="button" data-qb-action="clear-scope">顯示同級同科試題</button></div><label>搜尋題目<input type="search" data-qb="search" placeholder="輸入考點、題目或原卷名稱"></label>
       <div class="qb-filters"><label>年級<select aria-label="年級" data-qb="year">${options(papers.map(p=>p.year),'全部年級')}</select></label><label>科目<select aria-label="科目" data-qb="subject">${options(papers.map(p=>p.subject),'全部科目')}</select></label>
       <label>課題<select aria-label="課題" data-qb="topic"></select></label><label>題型<select aria-label="題型" data-qb="kind">${options(all.map(r=>kind(r.question)),'全部題型')}</select></label>
       <label>難度<select aria-label="難度" data-qb="difficulty">${options(all.map(r=>r.question.difficulty||'未標示'),'全部難度')}</select></label>
@@ -93,13 +94,14 @@
     }
     function refreshTopics() {
       const topic = field('topic'), prior = topic.value;
-      const available = all.filter(({paper}) => (!field('year').value || paper.year === field('year').value) && (!field('subject').value || paper.subject === field('subject').value));
+      const available = all.filter(({paper}) => (!scopedPaper || scopedPaper.id === paper.id) && (!field('year').value || paper.year === field('year').value) && (!field('subject').value || paper.subject === field('subject').value));
       topic.innerHTML = options(available.map(r=>r.question.topic), '全部課題');
       if ([...topic.options].some(o=>o.value===prior)) topic.value = prior;
     }
     function drawResults() {
       const terms = field('search').value.normalize('NFKC').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
       const list = all.filter(({paper,question:q}) => {
+        if (scopedPaper && paper.id !== scopedPaper.id) return false;
         if (['year','subject'].some(k=>field(k).value && field(k).value!==paper[k])) return false;
         if (field('topic').value && field('topic').value!==q.topic) return false;
         if (field('kind').value && field('kind').value!==kind(q)) return false;
@@ -174,10 +176,12 @@
       [field('year').value,field('subject').value] = course;
       field('feature').value='variants';
     }
-    if (source && !qid) {
+    if (source && (!qid || available)) {
+      scopedPaper = source;
+      field('scope').hidden = false;
+      field('scope-title').textContent = source.title;
       field('year').value = source.year;
       field('subject').value = source.subject;
-      field('search').value = source.title;
     }
     if (collection==='department' || collection==='hk-new') field('feature').value=collection;
     refreshTopics();
@@ -185,7 +189,6 @@
       const previous=Number(fromVersion);
       const next=Number.isInteger(previous) && previous>=0 && previous<=available?previous%available+1:1;
       versionChoices.set(keyOf({paperId:source.id,questionId:qid}),next);
-      field('search').value=source.title;
       field('topic').value=item.topic || '';
     }
     drawResults(); drawCart();
@@ -204,12 +207,29 @@
         versionChoices.set(keyOf({paperId:row.dataset.paper,questionId:row.dataset.question}), Number(e.target.value));
         drawResults(); return;
       }
-      if(e.target.closest('.qb-filters')) { page=0; if (['year','subject'].includes(e.target.dataset.qb)) refreshTopics(); drawResults(); }
+      if(e.target.closest('.qb-filters')) {
+        page=0;
+        if (['year','subject'].includes(e.target.dataset.qb)) {
+          scopedPaper = null;
+          field('scope').hidden = true;
+          refreshTopics();
+        }
+        drawResults();
+      }
     });
     root.addEventListener('click',async e=>{
       const button = e.target.closest('[data-qb-action]');
       if (!button || busy) return;
       const action=button.dataset.qbAction, i=Number(button.dataset.index);
+      if (action==='clear-scope') {
+        scopedPaper = null;
+        field('scope').hidden = true;
+        page = 0;
+        refreshTopics();
+        drawResults();
+        field('search').focus();
+        return;
+      }
       if (action==='prev'||action==='next') { page+=action==='prev'?-1:1; drawResults(); return; }
       if (action==='cart') { field('title').focus(); return; }
       if (action==='reload') { window.removeEventListener('beforeunload',unload); location.reload(); return; }
