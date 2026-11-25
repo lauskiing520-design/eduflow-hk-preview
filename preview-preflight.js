@@ -26,6 +26,11 @@ function createPreviewPreflight(catalogue, esc) {
       revised.expected = expected.value;
     }
     if ((q.figure || q.diagram) && q.prompt !== update.prompt) revised.figurePrompt = q.figurePrompt || q.prompt;
+    if (Object.hasOwn(update,'english')) {
+      const english=window.EduFlowMathsLanguage.bindRevision(revised,update.english);
+      if (!english) return null;
+      revised.teacherEnglish=english;
+    }
     return revised;
   }
   function materialise(spec) {
@@ -41,7 +46,8 @@ function createPreviewPreflight(catalogue, esc) {
       const override = spec.edits?.[i];
       const revised = override ? revisedQuestion(q,override) : q;
       if (!revised) return null;
-      questions.push({...revised, id:original.questions[i].id});
+      questions.push({...revised, id:original.questions[i].id,
+        bankOrigin:revised.bankOrigin || {paperId:paper.id,questionId:q.id}});
     }
     return {...original,id:spec.id,title:original.title + '（試改本 ' + spec.id.slice(6,12) + '）',questions};
   }
@@ -54,7 +60,8 @@ function createPreviewPreflight(catalogue, esc) {
         let spec;
         try { spec = JSON.parse(localStorage.getItem(key)); } catch { continue; }
         if (spec?.id !== id) continue;
-        const p = materialise(spec);
+        let p;
+        try { p = materialise(spec); } catch { continue; }
         if (p) { copies.set(id,spec); register(p); }
       }
     } catch { /* The original catalogue is always available. */ }
@@ -85,7 +92,7 @@ function createPreviewPreflight(catalogue, esc) {
     const suffix = room ? '/'+room : '';
     return '<section class="preview-preflight"><a class="back-link" href="#paper/'+esc(p.id)+suffix+'">返回試卷預覽</a>'+
       '<header class="page-heading"><h1>出卷前檢查</h1><p>'+esc(p.title)+'</p><div class="actions"><button class="button" type="button" id="pf-edit">從題庫換一題</button><button class="button primary" type="button" id="pf-save-top" hidden>另存並預覽試改本</button></div></header>'+
-      (EduAnswerVerification.eligible(p) ? '<p><a class="button" href="#verify/'+esc(p.id)+suffix+'">驗算題目與參考答案</a></p>' : '')+
+      (EduAnswerVerification.eligible(p) || EduAnswerVerification.editable(p) ? '<p><a class="button" href="#verify/'+esc(p.id)+suffix+'">驗算及編修英譯</a></p>' : '')+
       '<div id="pf-report">'+report(p)+'</div>'+
       '<section class="pf-trial-edit"><h2>從題庫換一題</h2><p>先看換題後的檢查結果，再另存試改本。試改本可在這個瀏覽器預覽、列印及派給示例班級。</p>'+
       '<label>要替換的題目<select id="pf-index">'+p.questions.map((q,i)=>'<option value="'+i+'">第 '+(i+1)+' 題 · '+esc(q.topic || q.prompt.slice(0,20))+'</option>').join('')+'</select></label>'+

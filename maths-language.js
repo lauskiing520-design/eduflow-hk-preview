@@ -17,10 +17,36 @@
     return `<div class="maths-language no-print" role="group" aria-label="試題語言"><span>試題語言</span><button type="button" lang="zh-HK" data-maths-language="zh-HK" aria-pressed="${language === 'zh-HK'}">中文</button><button type="button" lang="en" data-maths-language="en" aria-pressed="${language === 'en'}">English</button>${partial ? '<small>部分試題備有英譯</small>' : ''}</div>`;
   }
 
+  function revisionBasis(q) {
+    return [q.kind, q.prompt, q.referenceAnswer || '', q.expected ?? null, q.unit || '', q.variable || '',
+      q.solution, q.criteria.map(c => [c.id, c.label, c.max, c.mode]), q.options || [], q.diagram || ''];
+  }
+
+  function teacherEntry(q) {
+    const en = q.teacherEnglish;
+    return en?.reviewed && en.prompt && en.solution && q.criteria.every(c => en.criteria?.[c.id]) &&
+      JSON.stringify(en.basis) === JSON.stringify(revisionBasis(q)) ? en : null;
+  }
+
+  function bindRevision(q, data) {
+    if (!data || typeof data.reviewed !== 'boolean' || !Array.isArray(data.labels) || data.labels.length !== q.criteria.length) {
+      throw Error('請逐項核對英譯及評分點。');
+    }
+    function field(value, limit) {
+      if (typeof value !== 'string' || value.length > limit || (data.reviewed && !value.trim())) {
+        throw Error('確認英譯前，請填妥英文題目、解法及每個評分點。');
+      }
+      return value.trim();
+    }
+    return {reviewed:data.reviewed, basis:revisionBasis(q), prompt:field(data.prompt,2500),
+      solution:field(data.solution,3500), criteria:Object.fromEntries(q.criteria.map((c,i)=>[c.id,field(data.labels[i],500)]))};
+  }
+
   function entry(paper, question) {
+    if (question.teacherEnglish) return teacherEntry(question);
     const origin = question.bankOrigin;
     if (origin?.variant) return null;
-    const id = origin?.paperId || paper.id;
+    const id = origin?.paperId || paper.englishOrigin || paper.variantOf || paper.id;
     const qid = origin?.questionId || question.id;
     const record = window.EduFlowMathsEnglish?.[id]?.questions?.[qid];
     if (!record || record.sourcePrompt !== question.prompt || !Array.isArray(question.criteria)) return null;
@@ -62,5 +88,5 @@
     }
   });
 
-  window.EduFlowMathsLanguage = {text, controls, entry, title, available, paperControls};
+  window.EduFlowMathsLanguage = {text, controls, entry, title, available, paperControls, bindRevision, teacherEntry};
 })();

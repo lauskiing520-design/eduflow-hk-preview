@@ -34,7 +34,7 @@ function hub(filter='bank'){
   const topics=[...new Set(p.questions.map(q=>q.topic).filter(Boolean))];
   return `<article class="library-row"><div><p class="library-subject">${esc(p.year)} · ${esc(p.subject)}</p><h2><a href="#paper/${esc(p.id)}">${esc(p.title)}</a></h2>${topics.length>1?`<p class="library-meta">${esc(topics.slice(0,3).join('、'))}</p>`:''}<p class="library-meta">${p.questions.length} 題　·　${C.totalMax(p)} 分　·　${p.minutes} 分鐘</p></div><div class="actions">${href('paper/'+p.id,'預覽試卷')}${href('assign/'+p.id,'派給班級',true)}</div></article>`;
  }).join('');
- return `<div class="exam-library"><header class="workspace-title"><div><h1>試卷列表</h1><p>選用現成試卷，或從題庫逐題挑選，組成適合自己班級的一份卷。</p></div><div class="actions">${href('question-bank','從題庫組卷',true)}${href('equation-practice','自訂方程出同類題')}</div></header><nav class="library-tabs" aria-label="篩選試卷">${tabs}</nav>${rows}</div>`;
+ return `<div class="exam-library"><header class="workspace-title"><div><h1>試卷列表</h1><p>選用現成試卷，或從題庫逐題挑選，組成適合自己班級的一份卷。</p></div><div class="actions">${href('question-bank','從題庫組卷',true)}${href('equation-practice','自訂方程出同類題')}${href('percent-practice','自訂百分法出同類題')}</div></header><nav class="library-tabs" aria-label="篩選試卷">${tabs}</nav>${rows}</div>`;
 }
 
 const mathsLanguage = window.EduFlowMathsLanguage;
@@ -72,16 +72,15 @@ function paperPage(p,room){
  const suffix=room?'/'+room:'';
  return `<div class="teacher-sheet"><a class="sheet-back" href="#${libraryBack}">返回試卷列表</a>
  <header class="sheet-head"><div><p>${esc(p.year)} · ${esc(p.subject)}</p><h1>${mathsLanguage.text(p.title,mathsLanguage.title(p))}</h1><p>${p.questions.length} 題　·　${C.totalMax(p)} 分　·　建議 ${p.minutes} 分鐘</p></div>
- <div class="sheet-actions">${href('assign/'+p.id+suffix,'派給班級',true)}${href('preflight/'+p.id+suffix,'出卷前檢查')}${EduEquationPracticeUI.suitable(p)?href('equation-practice/'+p.id,'自訂方程出同類題'):''}${href('key/'+p.id,'參考答案及評分準則')}${href('print/'+p.id,'列印預覽')}</div></header>
+ <div class="sheet-actions">${href('assign/'+p.id+suffix,'派給班級',true)}${href('preflight/'+p.id+suffix,'出卷前檢查')}${EduAnswerVerification.editable(p)?href('verify/'+p.id+suffix,'驗算及編修英譯'):''}${p.id.startsWith('trial-') && p.questions.some(q=>EduFlowMathsLanguage.teacherEntry(q))?href('question-bank/'+p.id,'選用已核對的雙語題'):''}${p.year==='中一' && p.subject==='科學'?href('science-readings','用實驗讀數出卷'):''}${EduEquationPracticeUI.suitable(p)?href(EduEquationPracticeUI.link(p),EduEquationPracticeUI.label(p)):''}${href('key/'+p.id,'參考答案及評分準則')}${href('print/'+p.id,'列印預覽')}</div></header>
  ${mathsLanguage.paperControls(p)}
  ${sourceCredit(p)}<div class="sheet-body"><aside><h2>試題目錄</h2><nav class="paper-index" aria-label="試卷題目">${p.questions.map((q,i)=>`<a href="#paper/${esc(p.id)}" data-action="jump-paper-question" data-index="${i}">${i+1}</a>`).join('')}</nav></aside><section class="paper-screen-questions" aria-label="試題預覽">${p.questions.map((q,i)=>sheetQuestion(p,q,i)).join('')}</section></div></div>`;
 }
 
-const previewClasses=createPreviewClasses({papers,esc,href,heading,sheetQuestion,sourceCredit,syncPapers,hasReport:trialReport.eligible,onRecordsChange:render});
-function registerPaper(copy){if(!getPaper(copy.id)){papers.push(copy);previewClasses.registerPaper(copy)}}
+const previewClasses=createPreviewClasses({papers,esc,href,heading,sheetQuestion,sourceCredit,syncPapers,hasReport:trialReport.eligible,followupsFor:trialFollowups.forStudent,onRecordsChange:render});
+function registerPaper(copy){trialBank.addRevision(copy);if(!getPaper(copy.id)){papers.push(copy);previewClasses.registerPaper(copy)}}
 function syncPapers(){
- trialBank.sync(p=>{trialPreflight.addSource(p);registerPaper(p)});
- trialPreflight.sync(registerPaper);
+ window.syncPreviewSources(trialBank,trialPreflight,registerPaper);
 }
 function retiredRoute(view,key,p){
  const marking='<a class="button primary" href="marking-demo.html">試改示例答卷</a>';
@@ -108,22 +107,26 @@ function render(){
  let html,title,activeTab='papers';
  const preview=previewClasses.route(view,key,num,position);
  if(preview){[title,html]=preview;activeTab='classes'}
- else if(view==='equation-practice' && (!key || EduEquationPracticeUI.suitable(p))){title='自訂方程出同類題';html='<section id="equationPractice"></section>'}
+ else if(['equation-practice','percent-practice'].includes(view) && (!key || (EduEquationPracticeUI.suitable(p) && view===(EduEquationPracticeUI.courseOf(p)==='percent'?'percent-practice':'equation-practice')))){title=view==='percent-practice'?'自訂百分法出同類題':'自訂方程出同類題';html='<section id="equationPractice"></section>'}
+ else if(view==='science-readings'){title='用實驗讀數出卷';html='<section id="scienceReadings"></section>'}
  else if(view==='question-bank'){title='從題庫組卷';html='<section id="question-bank"></section>';activeTab='question-bank'}
  else if(view==='sample-analysis'&&trialReport.eligible(p)){title='全班常見錯答';html=trialReport.page(p,room);activeTab='classes'}
  else if(view==='sample-followup'){title='我的再練作業';html='';activeTab='classes'}
  else if(view==='papers'){title='試卷列表';html=hub(key)}
  else if((view==='paper'||view==='ready')&&p){title=paperName(p);html=paperPage(p,room)}
  else if(view==='preflight'&&p){title='出卷前檢查';html=trialPreflight.page(p,room)}
- else if(view==='verify'&&EduAnswerVerification.eligible(p)){title='答案驗算';html=EduPreviewVerification.page(p,room,esc)}
+ else if(view==='verify'&&(EduAnswerVerification.eligible(p)||EduAnswerVerification.editable(p))){title='答案驗算';html=EduPreviewVerification.page(p,room,esc)}
  else if(view==='key'&&p){title='參考答案及評分準則';html=heading(p.title,p.year+' · '+p.subject,'paper/'+p.id,'返回試卷預覽',mathsLanguage.title(p))+mathsLanguage.paperControls(p)+keyContent(p)}
  else if(view==='print'&&p){title='列印空白試卷';html=printablePaperPage(p)}
  else if(view==='marking'){location.replace('marking-demo.html');return}
  else {[title,html]=retiredRoute(view,key,p);activeTab=''}
  $('#assessmentApp').innerHTML=html;
- if(view==='equation-practice' && $('#equationPractice'))EduEquationPracticeUI.mount($('#equationPractice'),{paper:p,
-   readDraft:trialBank.readPracticeDraft,writeDraft:trialBank.writePracticeDraft,
+ if($('#equationPractice'))EduEquationPracticeUI.mount($('#equationPractice'),{paper:p,course:view==='percent-practice'?'percent':'equations',
+   readDraft:()=>trialBank.readPracticeDraft(view),writeDraft:data=>trialBank.writePracticeDraft(data,view),
    save:data=>trialBank.savePractice(data),onSaved:paper=>{syncPapers();location.hash='paper/'+paper.id}
+ });
+ if(view==='science-readings')EduScienceReadingsUI.mount($('#scienceReadings'),{
+   ...EduPreviewScienceReadings,local:true,openPaper:paper=>{syncPapers();location.hash='paper/'+paper.id}
  });
  if(view==='question-bank')trialBank.mount($('#question-bank'),paper=>{syncPapers();location.hash='paper/'+paper.id},key,num);
  if(view==='sample-analysis'&&trialReport.eligible(p))trialReport.mount($('#assessmentApp'),p,questionFigure,trialFollowups,room,position);

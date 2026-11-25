@@ -1,6 +1,6 @@
 'use strict';
 /* Class assignment on the public, static preview. All class and pupil counts are examples. */
-window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuestion, sourceCredit, syncPapers, hasReport, onRecordsChange}) {
+window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuestion, sourceCredit, syncPapers, hasReport, followupsFor, onRecordsChange}) {
   const rooms = [
     {id:'1a', name:'中一 A 班', year:'中一', pupils:26},
     {id:'1b', name:'中一 B 班', year:'中一', pupils:25},
@@ -116,11 +116,14 @@ window.createPreviewClasses = function ({papers, esc, href, heading, sheetQuesti
     const members=roster(room), person=studentId?members.find(s=>s.id===studentId):members[0];
     if(!person) return heading('找不到這位示例學生',room.name,'sample-student/'+room.id,'返回班級學生頁面');
     const items = records.filter(row => row.room===room.id && recipients(row).some(s=>s.id===person.id));
+    const rounds=followupsFor(room.id,Number(person.id.slice(-2)));
+    const practice=rounds.map(r=>'<article class="sample-class-head"><div><h2>'+esc(r.title)+'</h2><p>'+esc(r.status)+
+      '</p></div>'+href(r.route,'查看再練',true)+'</article>').join('');
     return heading('我的作業',room.name+' · 示例學生視角','classes','返回班級與作業')+
-      `<label class="sample-paper-picker">查看哪位示例學生的作業？<select id="sample-student-id" data-room="${room.id}">${members.map(s=>`<option value="${s.id}" ${s.id===person.id?'selected':''}>${s.label}</option>`).join('')}</select></label><section class="sample-rooms">${items.length ? items.map(row => {
+      `<label class="sample-paper-picker">查看哪位示例學生的作業？<select id="sample-student-id" data-room="${room.id}">${members.map(s=>`<option value="${s.id}" ${s.id===person.id?'selected':''}>${s.label}</option>`).join('')}</select></label><section class="sample-rooms">${practice}${items.length ? items.map(row => {
         const p = paperById.get(row.paper);
         return `<article class="sample-class-head"><div><h2>${esc(p.title)}</h2><p>${esc(p.subject)} · ${p.questions.length} 題 · ${esc(dueLabel(row))}</p></div>${href('sample-paper/'+room.id+'/'+p.id+(studentId?'/'+person.id:''),'查看試題')}</article>`;
-      }).join('') : '<article><h2>暫無作業</h2><p>老師派卷後，這裡會列出試卷和截止日期。</p>'+href('class-papers/'+room.id,'返回教師視角選卷',true)+'</article>'}</section>`;
+      }).join('') : rounds.length?'':'<article><h2>暫無作業</h2><p>老師派卷後，這裡會列出試卷和截止日期。</p>'+href('class-papers/'+room.id,'返回教師視角選卷',true)+'</article>'}</section>`;
   }
   function studentPaper(roomId,paperId,studentId) {
     const row=records.find(row=>row.room===roomId && row.paper===paperId);

@@ -3,30 +3,40 @@
   const engine=globalThis.EduEquationPractice;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let carried;
+  const courseOf = paper=>paper?.year==='中二'?'percent':'equations';
+  const route = course=>course==='percent'?'percent-practice':'equation-practice';
+  const link = paper=>route(courseOf(paper))+'/'+encodeURIComponent(paper.id);
+  const label = paper=>paper?.year==='中二'?'自訂百分法出同類題':'自訂方程出同類題';
   function suitable(paper) {
-    return paper?.year==='中一' && paper.subject==='數學' && paper.questions.some(q=>{
+    return ['中一','中二'].includes(paper?.year) && paper.subject==='數學' && paper.questions.some(q=>{
       if (q.source?.type==='adapted' || q.diagram || q.figure) return false;
       if (paper.custom) return true;
-      try { engine.inspect(q.prompt); return true; } catch { return false; }
+      try { engine.inspect(q.prompt,courseOf(paper)); return true; } catch { return false; }
     });
   }
-  function open(prompt) {
-    carried=prompt;
-    location.hash='equation-practice';
+  function open(prompt,year='中一') {
+    const course=year==='中二'?'percent':'equations';
+    carried={prompt,course};
+    location.hash=route(course);
   }
-  function mount(root,{paper,index,request,save,onSaved,readDraft,writeDraft}) {
-    const fromEditor=carried;
+  function mount(root,{paper,index,course=courseOf(paper),request,save,onSaved,readDraft,writeDraft}) {
+    const fromEditor=carried?.course===course ? carried.prompt : undefined;
     carried=undefined;
-    const sourceOptions=paper?.questions.map((q,i)=>({q,i})).filter(({q})=>q.source?.type!=='adapted' && !q.diagram && !q.figure) || [];
-    const supported=sourceOptions.find(({q})=>{try{engine.inspect(q.prompt);return true;}catch{return false;}});
+    const usable=q=>{try {engine.inspect(q.prompt,course);return true;} catch {return false;}};
+    const sourceOptions=paper?.questions.map((q,i)=>({q,i})).filter(({q})=>q.source?.type!=='adapted' && !q.diagram && !q.figure && (paper.custom || usable(q))) || [];
+    const supported=sourceOptions.find(({q})=>usable(q));
     const initial=sourceOptions.find(item=>item.i===index) || supported || sourceOptions[0];
-    const title='中一方程同類練習';
+    const percent=course==='percent';
+    const title=percent?'中二百分法同類練習':'中一方程同類練習';
+    const examples=percent
+      ? [engine.percentExample,'球鞋減價 20% 後售 320 元。原價多少元？','水杯價格由 120 元升至 150 元，求升幅。','書包原價 250 元，先加價 20%，再減價 15%，求最後售價。']
+      : ['印刷費包括一次排版費24元及每冊3元。總費60元，印了多少冊？','租單車已繳85元，其中25元是按金，餘額支付每小時10元的租金。可租多少小時？'];
     root.innerHTML='<a class="sheet-back" href="#'+(paper?'paper/'+esc(paper.id):'papers')+'">'+(paper?'返回原卷':'返回試卷列表')+'</a>'+
-      '<header class="page-heading"><h1>自訂方程出同類題</h1><p>輸入一道中一方程，產生兩題，核對解法後選入再練卷。</p></header>'+
+      '<header class="page-heading"><h1>'+(percent?'自訂百分法出同類題':'自訂方程出同類題')+'</h1><p>輸入一道'+(percent?'中二百分法題':'中一方程')+'，產生兩題，核對解法後選入再練卷。</p></header>'+
       '<section class="scan-box"><h2>原題</h2>'+(sourceOptions.length?'<label class="answer-label">從原卷選題<select data-ep="source">'+sourceOptions.map(({q,i})=>'<option value="'+i+'">第 '+(i+1)+' 題 · '+esc(q.topic||q.prompt.slice(0,24))+'</option>').join('')+'</select></label>':'')+
       '<label class="answer-label">題目<textarea data-ep="prompt" maxlength="850" rows="3" required></textarea></label>'+
-      '<p class="field-note">可用四則、括號或分數。文字題支援印刷收費及單車租金，可套用下方例題的句式。</p>'+
-      '<details><summary>可用的文字題例子</summary><p>印刷費包括一次排版費24元及每冊3元。總費60元，印了多少冊？</p><p>租單車已繳85元，其中25元是按金，餘額支付每小時10元的租金。可租多少小時？</p></details>'+
+      '<p class="field-note">'+(percent?'可按折扣求售價、逆求原價、求升跌幅或計算相繼變價。':'可用四則、括號或分數。文字題支援印刷收費及單車租金，可套用下方例題的句式。')+'</p>'+
+      '<details><summary>可用的文字題例子</summary>'+examples.map(s=>'<p>'+esc(s)+'</p>').join('')+'</details>'+
       '<div class="page-actions"><button type="button" class="button primary" data-ep="generate">'+(request?'產生並驗算兩題':'以規則產生並驗算兩題')+'</button></div>'+
       (!request?'<p class="field-note">展示站使用規則出題，儲存的卷可在這個瀏覽器試派。</p>':'')+'</section>'+
       '<p data-ep="draft-status" role="status"></p><div data-ep="draft-tools" hidden><button class="button" type="button" data-ep="load">讀取已儲存的草稿</button> <button class="button" type="button" data-ep="replace" hidden>用目前內容取代草稿</button></div>'+
@@ -36,7 +46,7 @@
     const field=name=>root.querySelector('[data-ep="'+name+'"]');
     const prompt=field('prompt'), picker=field('source'), status=field('status');
     field('title').value=title;
-    prompt.value=fromEditor ?? initial?.q.prompt ?? engine.example;
+    prompt.value=fromEditor ?? initial?.q.prompt ?? (percent?engine.percentExample:engine.example);
     if(picker)picker.value=String(initial?.i);
     let generationId=crypto.randomUUID(),saveId=crypto.randomUUID(),batch,busy=false;
     let revision=0, dirty=false, paused=false, inFlight=null, timer;
@@ -81,7 +91,7 @@
     function showBatch(selected) {
       field('rows').innerHTML=batch.questions.map((q,i)=>
         '<article class="answer-question"><label><input type="checkbox" value="'+i+'"'+(selected.includes(i)?' checked':'')+'> 選入第 '+(i+1)+' 題</label><h3>'+esc(q.prompt)+'</h3>'+
-        '<p>答案　'+esc(q.referenceAnswer)+(q.unit?' '+esc(q.unit):'')+'</p><details><summary>驗算過程及評分點</summary><ol>'+
+        '<p>答案　'+esc(q.referenceAnswer)+(q.unit?' '+esc(q.unit==='$'?'元':q.unit):'')+'</p><details><summary>驗算過程及評分點</summary><ol>'+
         q.solution.split('\n').map(line=>'<li>'+esc(line)+'</li>').join('')+'</ol><ul>'+
         q.criteria.map(c=>'<li>'+esc(c.label)+'（'+c.max+' 分）</li>').join('')+'</ul></details></article>').join('');
       field('result').hidden=false;
@@ -109,7 +119,7 @@
         if(picker){const match=sourceOptions.find(({q})=>q.prompt===draft.sourcePrompt);picker.value=String(match?.i??'');}
         batch=null;field('result').hidden=true;field('rows').replaceChildren();status.textContent='';
         if(draft.candidates?.length){
-          const questions=draft.candidates.map(candidate=>engine.verifyCandidate(draft.sourcePrompt,candidate));
+          const questions=draft.candidates.map(candidate=>engine.verifyCandidate(draft.sourcePrompt,candidate,course));
           batch={mode:draft.mode,questions};showBatch(draft.selected);
           status.textContent=draft.mode==='ai'?'已恢復經驗算的 AI 變式。':'已恢復經驗算的規則變式。';
         }
@@ -141,10 +151,10 @@
       lock(true);field('result').hidden=true;batch=null;
       status.textContent=request?'正在產生及核對同類題…':'正在驗算同類題…';
       try {
-        engine.inspect(original);
-        const proposal=request?await request({prompt:original,requestId:generationId}):null;
+        engine.inspect(original,course);
+        const proposal=request?await request({prompt:original,requestId:generationId,course}):null;
         if(!root.isConnected)return;
-        batch=engine.generate(original,proposal?.mode==='ai'?proposal.candidates:null);
+        batch=engine.generate(original,proposal?.mode==='ai'?proposal.candidates:null,course);
         saveId=crypto.randomUUID();
         status.textContent=batch.mode==='ai'?'兩道 AI 變式已通過逐題驗算。':request?
           (proposal?.notice || 'AI 建議未通過同類及答案核對。')+'已改用規則生成，兩題均已驗算。':'兩道規則變式均已驗算。';
@@ -161,7 +171,7 @@
       lock(true);
       try{
         await drain();
-        const saved=await save({requestId:saveId,title:field('title').value.trim(),sourcePrompt:prompt.value.trim(),questions:chosen});
+        const saved=await save({requestId:saveId,title:field('title').value.trim(),sourcePrompt:prompt.value.trim(),questions:chosen,course});
         if(!paused){
           try {const result=await writeDraft({...empty(),revision});revision=result.draft.revision;}
           catch{/* The new paper exists; a newer draft in another window takes precedence. */}
@@ -173,5 +183,5 @@
     });
     restore(true);
   }
-  globalThis.EduEquationPracticeUI={mount,open,suitable};
+  globalThis.EduEquationPracticeUI={mount,open,suitable,courseOf,link,label};
 })();

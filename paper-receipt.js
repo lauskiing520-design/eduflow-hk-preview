@@ -6,8 +6,7 @@
   const params = new URLSearchParams(location.search);
   const catalogue = [...AssessmentData.papers];
   const preflight = createPreviewPreflight(AssessmentData.papers);
-  createPreviewQuestionBank(AssessmentData.papers).sync(p => {preflight.addSource(p);catalogue.push(p)});
-  preflight.sync(p => catalogue.push(p));
+  window.syncPreviewSources(createPreviewQuestionBank(AssessmentData.papers),preflight,p=>catalogue.push(p));
   const paper = catalogue.find(p => p.id === (params.get('paper') || 's1-equations-a'));
   const group = params.get('room') || (paper?.year === '中二' ? '2a' : '1a');
   const pupilNumbers=params.has('pupils')?params.get('pupils').split(','):null;

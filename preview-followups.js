@@ -2,7 +2,19 @@
 window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
   'use strict';
   const prefix='eduflow-hk-preview:point-practice:v1:';
-  const sourceFor=(paper,q)=>EduFlowQuestionBank.resolveParallelSource(catalogue,q,paper.id);
+  const whole='__whole_question__';
+  const total=q=>q.criteria.reduce((sum,c)=>sum+c.max,0);
+  const pointFor=(q,id)=>id===whole?{id:whole,label:'整題得分',max:total(q)}:q.criteria.find(c=>c.id===id);
+  function sourceFor(paper,q) {
+    const ref=EduFlowQuestionBank.resolveParallelSource(catalogue,q,paper.id);
+    if(ref && matchingRubric(q,ref.question) && q.expected===ref.question.expected &&
+       q.unit===ref.question.unit && JSON.stringify(q.options)===JSON.stringify(ref.question.options)) return ref;
+    const variants=globalThis.EduReportPractice.questions(paper.year,paper.subject,q);
+    if(!variants.length) return null;
+    return {whole:true,variant:0,question:q,generator:{
+      count:()=>variants.length,get:(_pid,_qid,v)=>variants[v-1]
+    }};
+  }
   const read=key=>{try{return JSON.parse(localStorage.getItem(prefix+key))}catch{return null}};
   const write=(key,data)=>localStorage.setItem(prefix+key,JSON.stringify(data));
   const failure='此瀏覽器未能儲存進度。請檢查網站的儲存權限後重試。';
@@ -20,19 +32,44 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
     if (!s || !Number.isInteger(s.index) || !['','1a','1b','2a','2b'].includes(s.room) || keyFor(s)!==key) return null;
     const p=getPaper(s.paper),q=p?.questions[s.index];
     const ref=q && sourceFor(p,q);
-    const v=ref?.generator.get(ref.paperId,ref.questionId,s.variant);
-    const point=v?.criteria.find(c=>c.id===s.point);
+    let v=ref?.generator.get(ref.paperId,ref.questionId,s.variant);
+    if ((s.point===whole)!==Boolean(ref?.whole)) return null;
+    if(ref?.whole){
+      if(s.sourcePrompt!==q.prompt || s.sourceMaximum!==total(q)) return null;
+      try{v=EduEquationPractice.verifyCandidate(q.prompt,s.candidate,p.year==='中一'?'equations':'percent');}
+      catch{return null;}
+    }
+    const point=v && pointFor(v,s.point);
+    const beforeMax=q && pointFor(q,s.point)?.max;
     if (!point || !matchingRubric(q,ref.question) || ref.variant===s.variant ||
         !Array.isArray(s.members) || !s.members.length || s.members.length>9 ||
-        !s.members.every(m=>Number.isInteger(m.n) && m.n>=1 && m.n<=9 && Number.isInteger(m.before) && m.before>=0 && m.before<point.max) ||
+        !s.members.every(m=>Number.isInteger(m.n) && m.n>=1 && m.n<=9 && Number.isFinite(m.before) && m.before>=0 && m.before<beforeMax) ||
         new Set(s.members.map(m=>m.n)).size!==s.members.length) return null;
-    return {s,p,v,point};
+    return {s,p,v,point,beforeMax};
   }
   function status(key,n,max) {
     const submitted=read(key+':submission:'+n);
     const score=read(key+':released:'+n);
     return {submitted:['complete','partial'].includes(submitted)?submitted:null,
       score:Number.isInteger(score) && score>=0 && score<=max?score:null};
+  }
+  function forStudent(room,n) {
+    let keys;
+    try { keys=Object.keys(localStorage); } catch { return []; }
+    const rounds=[];
+    for(const stored of keys) {
+      if(!stored.startsWith(prefix)) continue;
+      const key=stored.slice(prefix.length);
+      if(key.includes(':') || key.split('~')[1]!==room) continue;
+      const raw=read(key);
+      if(!Array.isArray(raw?.members) || !raw.members.some(m=>m?.n===n)) continue;
+      const round=load(key);
+      if(!round) continue;
+      const {s,p,point}=round, result=status(key,n,point.max);
+      rounds.push({title:p.title+' · 第 '+(s.index+1)+' 題再練',route:'sample-followup/'+key+'/'+n,
+        status:result.score!==null?'已發布 '+result.score+' / '+point.max+' 分':result.submitted?'已交，待發布':'待交'});
+    }
+    return rounds;
   }
   function example(v,point,choice) {
     if (choice==='complete') return [v.sample?.working,v.sample?.answer].filter(Boolean).join('；') || v.solution;
@@ -43,8 +80,11 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
   function mountTeacher(root,p,room,index,records,initialPoint) {
     const q=p.questions[index],ref=sourceFor(p,q);
     if (!ref || !matchingRubric(q,ref.question) || !records.length) return;
-    const candidates=q.criteria.map((point,i)=>({point,members:records.flatMap((r,j)=>
-      Number.isFinite(r[i]) && r[i]<point.max?[{n:j+1,before:r[i]}]:[])})).filter(item=>item.members.length);
+    const criteria=ref.whole?[pointFor(q,whole)]:q.criteria;
+    const candidates=criteria.map((point,i)=>({point,members:records.flatMap((r,j)=>{
+      const score=ref.whole?(r.length===q.criteria.length && r.every(Number.isFinite)?r.reduce((sum,n)=>sum+n,0):null):r[i];
+      return Number.isFinite(score) && score<point.max?[{n:j+1,before:score}]:[];
+    })})).filter(item=>item.members.length);
     if (!candidates.length) return;
     const box=document.createElement('section');
     box.className='point-practice';
@@ -52,7 +92,7 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
     const jump=document.createElement('button');
     jump.className='button';jump.type='button';jump.textContent='跟進這題的失分學生';
     root.querySelector('.report-prompt')?.after(jump);
-    box.innerHTML='<h2>按失分點派再練</h2><label>跟進哪個評分點？<select data-point-choice>'+
+    box.innerHTML='<h2>'+(ref.whole?'按整題失分派再練':'按失分點派再練')+'</h2><label>跟進範圍<select data-point-choice>'+
       candidates.map(({point,members})=>'<option value="'+esc(point.id)+'">'+esc(point.label)+'（'+members.length+' 人未取滿分）</option>').join('')+
       '</select></label><div data-point-body></div><p role="status" data-point-notice></p>';
     const select=box.querySelector('[data-point-choice]'),body=box.querySelector('[data-point-body]'),notice=box.querySelector('[data-point-notice]');
@@ -71,17 +111,29 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
       const version=body.querySelector('[data-point-version]');
       function preview() {
         const v=ref.generator.get(ref.paperId,ref.questionId,Number(version.value));
-        const other=v.criteria.find(c=>c.id===point.id);
+        const other=pointFor(v,point.id);
         body.querySelector('[data-point-question]').innerHTML='<p>'+esc(v.prompt)+'</p>'+figure(v)+
-          '<p><strong>再練會核對</strong>　'+esc(other.label)+'（'+other.max+' 分）</p>';
+          '<p><strong>再練會核對</strong>　'+esc(other.label)+'（'+other.max+' 分）</p>'+
+          (ref.whole?'<p>原題滿分 '+point.max+' 分。只使用示例已發布的整題得分。</p><details><summary>參考解法及評分點</summary><p>'+
+            esc(v.solution)+'</p><ul>'+v.criteria.map(c=>'<li>'+esc(c.label)+'（'+c.max+' 分）</li>').join('')+'</ul></details>':'');
       }
       version.addEventListener('change',preview);preview();
       body.querySelector('[data-point-dispatch]').onclick=()=>{
-        try { if (!load(key)) write(key,{...spec,variant:Number(version.value)});show(); }
+        try {
+          if(!load(key)){
+            const variant=Number(version.value), record={...spec,variant};
+            if(ref.whole){
+              const v=ref.generator.get(ref.paperId,ref.questionId,variant);
+              Object.assign(record,{sourcePrompt:q.prompt,sourceMaximum:point.max,candidate:{prompt:v.prompt,referenceAnswer:v.referenceAnswer}});
+            }
+            write(key,record);
+          }
+          show();
+        }
         catch { notice.textContent=failure; }
       };
     }
-    function result({s,v,point},key) {
+    function result({s,v,point,beforeMax},key) {
       const rows=s.members.map(m=>({...m,...status(key,m.n,point.max)}));
       const attained=rows.filter(m=>m.score===point.max).length;
       const needs=rows.filter(m=>m.score!==null && m.score<point.max).length;
@@ -91,7 +143,7 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
         (rows.some(r=>!r.submitted)?'<button class="button" type="button" data-fixture>載入未交學生的示例作答</button>':'')+
         '<ul class="point-roster">'+rows.map(m=>{
           const student='<a href="#sample-followup/'+esc(key)+'/'+m.n+'">'+name(m.n)+'的作業</a>';
-          const before='原題 '+m.before+'/'+point.max+' 分';
+          const before='原題 '+m.before+'/'+beforeMax+' 分';
           if (m.score!==null) return '<li>'+student+'<p>'+before+'　→　再練 '+m.score+'/'+point.max+' 分（已發布）</p></li>';
           if (!m.submitted) return '<li>'+student+'<p>'+before+'　·　待交再練</p></li>';
           const sample=example(v,point,m.submitted);
@@ -133,6 +185,7 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
     const render=()=>{
       const st=status(key,n,point.max);
       root.innerHTML='<section class="trial-answer-report"><a class="back-link" href="'+esc(linkBack(s))+'">返回老師的再練報告</a>'+
+        (s.room?'<a class="back-link" href="#sample-student/'+s.room+'/'+s.room+'-'+String(n).padStart(2,'0')+'">返回我的作業</a>':'')+
         '<header><p>'+name(n)+' · '+esc(p.year+p.subject)+'</p><h1>我的再練作業</h1><p>'+esc(p.title)+' · 第 '+(s.index+1)+' 題同類練習</p></header>'+
         '<section class="point-practice"><p>'+esc(v.prompt)+'</p>'+figure(v)+
         (st.submitted?'<h2>已交的示例作答</h2><p>'+esc(example(v,point,st.submitted))+'</p>'+
@@ -150,5 +203,5 @@ window.createPreviewFollowups = function (catalogue, getPaper, figure, esc) {
     };
     render();
   }
-  return {mountTeacher,student};
+  return {mountTeacher,student,forStudent};
 };

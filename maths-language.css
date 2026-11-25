@@ -23,3 +23,8 @@
 .maths-language button:focus-visible { outline: 3px solid #427bde; outline-offset: 2px; }
 .maths-language small { margin-left: 5px; font-size: .9rem; }
 @media print { .maths-language { display: none !important; } }
+
+.verify-edit-dialog [data-edit-english] { border-top: 1px solid #d7e1ea; padding-block: 14px; }
+.verify-edit-dialog [data-edit-english] summary { cursor: pointer; font-weight: 650; margin-bottom: 12px; }
+.verify-edit-dialog label.translation-confirm { display: flex; align-items: center; gap: 8px; }
+.verify-edit-dialog .translation-confirm input { width: 18px; height: 18px; flex: none; }

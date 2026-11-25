@@ -6,42 +6,52 @@ window.createPreviewQuestionBank = function (catalogue) {
   const validId = /^assembled-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
   const seen = new Set();
   const practicePrefix = 'eduflow-hk-preview:equation-practice:v1:';
-  const practiceDraftKey = 'eduflow-hk-preview:equation-practice-draft:v1';
+  const practiceDraftKey = view => view==='percent-practice'
+    ? 'eduflow-hk-preview:percent-practice-draft:v1' : 'eduflow-hk-preview:equation-practice-draft:v1';
   const practicePapers = new Map();
+  const revisedPapers = new Map();
+  function addRevision(paper) {
+    if (!paper.id.startsWith('trial-')) return;
+    const questions=paper.questions.filter(q=>window.EduFlowMathsLanguage.teacherEntry(q));
+    if (questions.length) revisedPapers.set(paper.id,{...paper,questions});
+  }
   const blank = () => ({id:'assembled-'+crypto.randomUUID(),revision:0,title:'',minutes:30,refs:[]});
   const read = key => JSON.parse(localStorage.getItem(key));
-  const library = () => [...catalogue,...practicePapers.values(),...window.EduDepartmentSample.approved()];
+  const library = () => [...catalogue,...practicePapers.values(),...revisedPapers.values(),...window.EduDepartmentSample.approved()];
   function practicePaper(data) {
     if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(data?.requestId) ||
         typeof data.title!=='string' || !data.title.trim() || data.title.length>120 ||
         !Array.isArray(data.questions) || ![1,2].includes(data.questions.length)) throw Error('再練卷的資料未齊。');
-    const questions=data.questions.map((item,i)=>({...EduEquationPractice.verifyCandidate(data.sourcePrompt,item),id:'q'+(i+1)}));
+    const course=data.course??'equations';
+    const questions=data.questions.map((item,i)=>({...EduEquationPractice.verifyCandidate(data.sourcePrompt,item,course),id:'q'+(i+1)}));
     if(new Set(questions.map(q=>q.expected)).size!==questions.length)throw Error('兩道同類題的答案須有分別。');
-    return {id:'practice-'+data.requestId,title:data.title.trim(),year:'中一',subject:'數學',custom:true,
-      description:'老師選編的一元一次方程再練卷',minutes:questions.length*5,questions};
+    return {id:'practice-'+data.requestId,title:data.title.trim(),year:course==='percent'?'中二':'中一',subject:'數學',custom:true,
+      description:course==='percent'?'老師選編的百分法再練卷':'老師選編的一元一次方程再練卷',minutes:questions.length*5,questions};
   }
   function savePractice(payload) {
     const data={...payload,questions:payload.questions.map(({prompt,referenceAnswer})=>({prompt,referenceAnswer}))};
     const paper=practicePaper(data);
+    const prior=read(practicePrefix+data.requestId);
+    if(prior && JSON.stringify(practicePaper(prior))!==JSON.stringify(paper))throw Error('這次保存已完成，請重新開始以另存不同題目。');
     write(practicePrefix+data.requestId,data);
     return {paper};
   }
-  function readPracticeDraft() {
-    return {draft:read(practiceDraftKey) || {revision:0,sourcePrompt:'',title:'',candidates:[],selected:[],mode:''}};
+  function readPracticeDraft(view) {
+    return {draft:read(practiceDraftKey(view)) || {revision:0,sourcePrompt:'',title:'',candidates:[],selected:[],mode:''}};
   }
-  async function writePracticeDraft(data) {
+  async function writePracticeDraft(data,view) {
     function update() {
-      const current=readPracticeDraft().draft;
+      const current=readPracticeDraft(view).draft;
       if(data.revision!==current.revision) {
         const error=Error('另一個分頁已更改這份草稿。');
         error.code='equation_draft_conflict';
         throw error;
       }
       const draft={...data,revision:current.revision+1};
-      write(practiceDraftKey,draft);
+      write(practiceDraftKey(view),draft);
       return {draft};
     }
-    return navigator.locks ? navigator.locks.request(practiceDraftKey,update) : update();
+    return navigator.locks ? navigator.locks.request(practiceDraftKey(view),update) : update();
   }
   function valid(draft) {
     return validId.test(draft?.id) && Number.isSafeInteger(draft.revision) && draft.revision >= 0 &&
@@ -91,6 +101,7 @@ window.createPreviewQuestionBank = function (catalogue) {
   function sync(register) {
     let keys;
     try { keys = Object.keys(localStorage); } catch { return; }
+    window.EduPreviewScienceReadings?.saved(paper=>{practicePapers.set(paper.id,paper);register(paper);},practicePapers);
     for (const key of keys) {
       if (!key.startsWith(practicePrefix) || practicePapers.has('practice-'+key.slice(practicePrefix.length))) continue;
       try {
@@ -135,5 +146,14 @@ window.createPreviewQuestionBank = function (catalogue) {
     EduFlowQuestionBank.mount(root,{papers:library(),draft:draft || blank(),collection,questionRef,save:saveHere,finish:next=>finish(next,key),
       onCreated,savedLabel:'選題草稿已儲存在此瀏覽器',backHref:'#papers'});
   }
-  return {sync,mount,savePractice,readPracticeDraft,writePracticeDraft};
+  return {sync,mount,savePractice,readPracticeDraft,writePracticeDraft,addRevision};
+};
+
+window.syncPreviewSources = function(bank, preflight, register) {
+  let added;
+  do {
+    added=false;
+    bank.sync(p=>{added=true;preflight.addSource(p);register(p)});
+    preflight.sync(p=>{added=true;bank.addRevision(p);register(p)});
+  } while (added);
 };

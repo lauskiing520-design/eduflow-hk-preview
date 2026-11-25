@@ -51,7 +51,7 @@
   const one = Ratio.read('1'), hundred = Ratio.read('100'), twelve = Ratio.read('12');
   const rates = value => value.div(hundred);
   const percent = (part, total) => part.div(total).mul(hundred);
-  const value = (amount, unit, steps) => ({amount, unit, steps});
+  const value = (amount, unit, steps, skill) => ({amount, unit, steps, skill});
   const show = (n, unit) => unit==='$' ? n+' 元' : n+(!unit || unit==='%'?unit:' '+unit);
   const positive = v => v.n>0n;
   const share = v => v.n>=0n && v.n<=100n*v.d;
@@ -84,7 +84,7 @@
   function reverse({price, rate}, increase) {
     const multiplier=increase?one.add(rates(rate)):one.sub(rates(rate));
     if (!positive(multiplier)) return fail('這個折減幅度不能用來倒推唯一的原價。');
-    return value(price.div(multiplier), '$', ['變動後金額是原來的 '+multiplier+' 倍。', '原來金額 = '+price+' ÷ '+multiplier+'。']);
+    return value(price.div(multiplier), '$', ['變動後金額是原來的 '+multiplier+' 倍。', '原來金額 = '+price+' ÷ '+multiplier+'。'], 'reverse');
   }
   function consecutive({up, down, direction}, upFirst) {
     if (!share(down)) return fail('減少的幅度不能超過原量的 100%。');
@@ -94,7 +94,7 @@
       '最後為 '+hundred.add(change)+'，相對最初'+(change.n<0n?'減少 ':'增加 ')+change.abs()+'%。'];
     if ((direction==='減' && change.n>0n) || (direction==='增' && change.n<0n))
       return {...fail('題幹所問的增減方向與計算結果相反。'), computed:change.abs()+'%（'+(change.n<0n?'減少':'增加')+'）',steps};
-    return value(change.abs(), '%', steps);
+    return value(change.abs(), '%', steps, 'consecutive');
   }
   function cashDiscount({price, coupon, fold, rate}, cashFirst) {
     const multiplier=fold ?? one.sub(rates(rate));
@@ -230,13 +230,13 @@
   rule('求{total}的{rate}%。',({total,rate})=>value(total.mul(rates(rate)),'',[total+' × '+rate+' ÷ 100。']));
   function directDiscount({price,rate}) {
     if (!share(rate)) return fail('減價幅度應在 0% 至 100% 之間。');
-    return value(price.mul(one.sub(rates(rate))),'$',['折後金額 = '+price+' × (1 − '+rate+'%)。']);
+    return value(price.mul(one.sub(rates(rate))),'$',['折後金額 = '+price+' × (1 − '+rate+'%)。'], 'forward');
   }
   rule('一件貨品原價${price}，減價{rate}%後的售價是多少？',directDiscount);
   rule('一件貨品原價{price}元，減價{rate}%後售價是多少元？',directDiscount);
   rule('一件貨品的價格由${start}增至${end}。求增加百分率。請以百分數作答。',({start,end})=>{
     if (!positive(start) || end.sub(start).n<0n) return fail('請核對原價及題目所說的增幅。');
-    return value(percent(end.sub(start),start),'%',['差額 '+end+' − '+start+'，再除以原價 '+start+' 並乘 100%。']);
+    return value(percent(end.sub(start),start),'%',['差額 '+end+' − '+start+'，再除以原價 '+start+' 並乘 100%。'], 'increase');
   });
   rule('一件外套原價${price}，先減價{rate}%，再按減價後的價錢打{fold}折。求最後售價，並寫出過程。',({price,rate,fold})=>{
     if (!share(rate) || !positive(fold) || fold.sub(one).n>0n) return fail('請核對兩次折扣。');
@@ -250,7 +250,9 @@
   });
   rule('一件外套先減價{rate}%，再用${coupon}優惠券，實付${price}。原價是多少元？',({rate,coupon,price})=>{
     const res=reverse({price:price.add(coupon),rate},false);
+    if (!res.amount) return res;
     res.steps.unshift('先把優惠券 '+coupon+' 元加回實付金額。');
+    res.skill='reverseCoupon';
     return res;
   });
   rule('貨品按成本加價{markup}%作標價，其後按標價{fold}折出售。盈利佔成本百分之幾？只填百分數的數值。',({markup,fold})=>{
@@ -269,7 +271,7 @@
   // Common teacher-written forms. Each pattern consumes every fact and the final question.
   const ordinaryRules = [];
   const noun = '(?:(?:一(?:件|個|對|雙|本|部|臺|台|套|款)|這件|這個|某件|某個|某)?' +
-    '(?:商品|貨品|產品|物品|貨物|書包|背包|球鞋|運動鞋|外套|毛衣|上衣|衣服|裙子|課本|圖書|玩具|手機|電腦|耳機|鉛筆盒|文具盒|單車|手袋|水樽|水杯|門票))?';
+    '(?:商品|貨品|產品|物品|貨物|書包|背包|球鞋|運動鞋|外套|毛衣|上衣|衣服|裙子|課本|圖書|玩具|手機|電腦|耳機|鉛筆盒|文具盒|文具|單車|手袋|水樽|水杯|門票|球衣|排球|籃球|羽毛球拍|網球拍|計數機|筆記簿|雨傘))?';
   const clause = '[,;:。]?';
   const oldPriceQuestion = '(?:求(?:出)?(?:它的|其)?原價|(?:原價|原來的售價)(?:是|為)?多少(?:錢|元)?)';
   const newPriceQuestion = '(?:求(?:出)?(?:商品的)?(?:折後價|折後售價|現價|售價)|(?:折後價|折後售價|現價|售價|實付)(?:是|為)?多少(?:錢|元)?)';
@@ -284,7 +286,7 @@
   }
   function reverseFold({price,fold}) {
     if (!positive(fold) || fold.sub(one).n>0n) return fail('這個折扣無法用來倒推唯一原價。');
-    return value(price.div(fold),'$',['折後金額是原價的 '+fold+' 倍。','原價 = '+price+' ÷ '+fold+'。']);
+    return value(price.div(fold),'$',['折後金額是原價的 '+fold+' 倍。','原價 = '+price+' ÷ '+fold+'。'], 'reverse');
   }
   ordinary(noun+'(?:打|以)'+fold+'(?:出售)?'+clause+paid+price+clause+optionalPlease+oldPriceQuestion,reverseFold);
   ordinary(noun+'(?:減價|降價|減售)'+rate+'(?:後)?'+clause+paid+price+clause+optionalPlease+oldPriceQuestion,v=>reverse(v,false));
@@ -292,8 +294,22 @@
   ordinary(noun+'(?:的)?原價(?:是|為)?'+price+clause+'(?:現在|現)?(?:減價|降價)'+rate+'(?:後)?'+clause+optionalPlease+newPriceQuestion,directDiscount);
   ordinary(noun+'(?:的)?原價(?:是|為)?'+price+clause+'(?:現在|現)?打'+fold+'(?:後)?'+clause+optionalPlease+newPriceQuestion,({price,fold})=>{
     if (fold.n<0n || fold.sub(one).n>0n) return fail('請核對折扣。');
-    return value(price.mul(fold),'$',['折後價 = 原價 '+price+' × '+fold+'。']);
+    return value(price.mul(fold),'$',['折後價 = 原價 '+price+' × '+fold+'。'], 'forward');
   });
+  // Keep the stated order and use the new price as the base of the second change.
+  const originalPrice = noun+'(?:的)?原價(?:是|為)?'+price+clause;
+  const finalPrice = '(?:最後(?:的|之)?(?:價格|售價|價錢)|最終售價|現價|售價)';
+  function afterChanges({price, up, down}, increaseFirst) {
+    if (!share(down)) return fail('減價的幅度不能超過原價的 100%。');
+    const gain = one.add(rates(up)), loss = one.sub(rates(down));
+    const first = increaseFirst ? gain : loss, second = increaseFirst ? loss : gain;
+    const intermediate = price.mul(first);
+    return value(intermediate.mul(second),'$',
+      ['第一次變價後為 '+price+' × '+first+' = '+intermediate+' 元。','第二次以 '+intermediate+' 元為基數，再乘 '+second+'。'], 'consecutive');
+  }
+  const finalQuery = clause+'(?:求|計算)'+finalPrice+'|'+clause+finalPrice+'(?:是|為)?多少(?:元|錢)?';
+  ordinary(originalPrice+'先(?:加價|上調)(?<up>'+decimal+')%'+clause+'再(?:減價|下調)(?<down>'+decimal+')%(?:'+finalQuery+')',v=>afterChanges(v,true));
+  ordinary(originalPrice+'先(?:減價|下調)(?<down>'+decimal+')%'+clause+'再(?:加價|上調)(?<up>'+decimal+')%(?:'+finalQuery+')',v=>afterChanges(v,false));
   const total='(?<total>'+decimal+')', part='(?<part>'+decimal+')';
   ordinary('(?:全班|班內)(?:共有|有|共)'+total+'(?:名學生|人|個學生)'+clause+'其中(?:有)?'+part+
     '(?:名|個|人是)(?<group>女生|男生|新生|新同學)'+clause+'(?:請問|問)?\\k<group>佔(?:全班|全體學生)(?:的)?'+percentageQuery,
@@ -308,7 +324,7 @@
     if (!positive(start)) return fail('百分率的原來基數須大於零。');
     const delta=increase?end.sub(start):start.sub(end);
     if (delta.n<0n) return fail('金額的變動方向與題目所問的增減相反。');
-    return value(percent(delta,start),'%',['差額為 '+delta+' 元。','以原價 '+start+' 元為基數，'+delta+' ÷ '+start+' × 100%。']);
+    return value(percent(delta,start),'%',['差額為 '+delta+' 元。','以原價 '+start+' 元為基數，'+delta+' ÷ '+start+' × 100%。'], increase?'increase':'decrease');
   }
   const priceFrom = noun+'(?:的)?(?:價格|售價|價錢)?(?:由|從)(?<start>'+decimal+')元';
   const priceEnd = '(?<end>'+decimal+')元'+clause;
@@ -364,9 +380,9 @@
     const base=Ratio.read(total);
     return positive(base) && expected && percent(Ratio.read(part),base).eq(expected);
   }
-  function check(q) {
-    if (typeof q?.prompt!=='string' || q.prompt.length>2000 || /\d\s+\d/u.test(normalize(q.prompt))) return null;
-    const prompt=stripSpaces(q.prompt);
+  function solvePrompt(input) {
+    if (typeof input!=='string' || input.length>2000 || /\d\s+\d/u.test(normalize(input))) return null;
+    const prompt=stripSpaces(input);
     for (const [patterns,text] of [[rules,prompt],[ordinaryRules,ordinaryText(prompt)]]) {
       for (const {expression,solve} of patterns) {
         const match=expression.exec(text);
@@ -376,12 +392,21 @@
           if (key==='group') continue; // The backreference ensures the same category was requested.
           values[key]=key==='direction' ? raw : key==='fold' ? discountRate(raw) : Ratio.read(raw);
         }
-        const result=solve(values);
-        if (result.status) return result;
-        return result.pair?confirmPair(result,q):confirmNumber(result,q);
+        return solve(values);
       }
     }
     return null;
   }
-  globalThis.EduPercentCheck = Object.freeze({check});
+  function check(q) {
+    const result=solvePrompt(q?.prompt);
+    if (!result || result.status) return result;
+    return result.pair?confirmPair(result,q):confirmNumber(result,q);
+  }
+  function practice(prompt) {
+    const result = solvePrompt(prompt);
+    if (!result?.skill || result.status || result.manual) return null;
+    const {amount,unit,skill} = result;
+    return {raw:amount.toString(), expected:Number(amount.n)/Number(amount.d), unit, skill};
+  }
+  globalThis.EduPercentCheck = Object.freeze({check,practice});
 })();

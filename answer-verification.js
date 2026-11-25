@@ -27,6 +27,11 @@ globalThis.EduAnswerVerification = (() => {
     return /^(s1-equations|s2-percent)-[ab]$/.test(paper.id) || paper.questions.some(q => verifier.check(q) !== null);
   }
 
+  function editable(paper) {
+    return paper?.subject === '數學' && ['中一','中二'].includes(paper.year) &&
+      paper.questions.some(q => ['text','number'].includes(q.kind));
+  }
+
   function check(question, paper) {
     return engine(paper)?.check(question) || {
       status:'unsupported', computed:'', steps:[],
@@ -44,13 +49,14 @@ globalThis.EduAnswerVerification = (() => {
   }
 
   function render(paper) {
-    if (!eligible(paper)) return '';
+    if (!eligible(paper) && !editable(paper)) return '';
     return '<section class="answer-verification" data-answer-verification aria-label="答案驗算">' +
       '<header><h2>答案驗算</h2><p data-av-summary></p></header>' +
       '<label>選擇題目<select data-av-picker></select></label>' +
       '<div class="av-fields"><label>題目<textarea data-av-prompt rows="3" maxlength="4000"></textarea></label>' +
       '<label><span data-av-ref-label>參考答案</span><textarea data-av-reference rows="2" maxlength="4000"></textarea></label></div>' +
       '<div class="av-actions"><button type="button" class="button primary" data-av-run>重新驗算</button>' +
+      '<button type="button" class="button" data-av-english hidden>編修英譯</button>' +
       '<button type="button" class="button" data-av-reset hidden>還原這題</button>' +
       (globalThis.EduEquationPracticeUI?.suitable(paper) ? '<button type="button" class="button" data-av-practice>以目前題目出同類題</button>' : '')+'</div>' +
       '<div data-av-result aria-live="polite"></div><div class="av-save" data-av-save-area hidden>' +
@@ -108,6 +114,9 @@ globalThis.EduAnswerVerification = (() => {
     }
     function select() {
       const q = paper.questions[index];
+      el('english').hidden = !options.onSave || !['text','number'].includes(q.kind);
+      el('english').textContent = q.teacherEnglish && !globalThis.EduFlowMathsLanguage.teacherEntry(q)
+        ? '編修英譯（待核對）' : '編修英譯';
       if(el('practice'))el('practice').hidden=Boolean(q.source?.type==='adapted' || q.diagram || q.figure);
       picker.value = String(index);
       el('ref-label').textContent = '參考答案' + (q.unit ? '（' + q.unit + '）' : '');
@@ -147,25 +156,27 @@ globalThis.EduAnswerVerification = (() => {
       state.result = runCheck(paper.questions[index], state.prompt, state.ref);
       refreshResult();
     });
-    el('practice')?.addEventListener('click',()=>globalThis.EduEquationPracticeUI.open(el('prompt').value));
+    el('practice')?.addEventListener('click',()=>globalThis.EduEquationPracticeUI.open(el('prompt').value,paper.year));
     el('reset').addEventListener('click', () => {
       const q = paper.questions[index];
       states[index] = {prompt:q.prompt, ref:reference(q), result:runCheck(q, q.prompt, reference(q))};
       select(); notifyDraft(); el('run').focus();
     });
-    el('save').addEventListener('click', async () => {
+    async function edit(editEnglish) {
       const state = states[index];
-      if (!options.onSave || !state.result || !changed(index)) return;
-      const btn = el('save');
+      if (!options.onSave || (!editEnglish && (!state.result || !changed(index)))) return;
+      const btn = el(editEnglish ? 'english' : 'save');
       btn.disabled = true;
       try {
         await options.onSave({index, question:paper.questions[index], prompt:state.prompt,
-          referenceAnswer:state.ref, result:state.result});
+          referenceAnswer:state.ref, result:state.result, editEnglish});
       } catch(error) { el('message').textContent = error.message || '未能採用修改，請再試。'; }
       finally { btn.disabled = false; }
-    });
+    }
+    el('save').addEventListener('click', () => edit(false));
+    el('english').addEventListener('click', () => edit(true));
     select();
   }
 
-  return {eligible, check, reference, render, mount, resultHTML};
+  return {eligible, editable, check, reference, render, mount, resultHTML};
 })();
