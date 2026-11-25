@@ -75,7 +75,7 @@
     const options = (items, caption) => '<option value="">'+esc(caption)+'</option>'+[...new Set(items.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-HK')).map(t=>'<option>'+esc(t)+'</option>').join('');
     root.classList.add('question-bank');
     root.innerHTML = `<a class="sheet-back" href="${esc(backHref)}">返回試卷列表</a>
-      <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。 <a href="department-library.html">科組題目入庫及審核</a> · <a href="hk-question-sources.html">香港題源與工作紙</a></p></header>
+      <header class="qb-header"><h1>選題組卷</h1><p>搜尋單題，按教學進度選入試卷。確認後可列印或派給班級。 <a href="department-library.html">科組題目入庫及審核</a> · <a href="hk-question-sources.html">香港初中試卷庫</a></p></header>
       <div class="qb-layout"><section aria-label="題庫"><div class="qb-search"><label>搜尋題目<input type="search" data-qb="search" placeholder="輸入考點、題目或原卷名稱"></label>
       <div class="qb-filters"><label>年級<select aria-label="年級" data-qb="year">${options(papers.map(p=>p.year),'全部年級')}</select></label><label>科目<select aria-label="科目" data-qb="subject">${options(papers.map(p=>p.subject),'全部科目')}</select></label>
       <label>課題<select aria-label="課題" data-qb="topic"></select></label><label>題型<select aria-label="題型" data-qb="kind">${options(all.map(r=>kind(r.question)),'全部題型')}</select></label>
@@ -173,6 +173,11 @@
     if (course) {
       [field('year').value,field('subject').value] = course;
       field('feature').value='variants';
+    }
+    if (source && !qid) {
+      field('year').value = source.year;
+      field('subject').value = source.subject;
+      field('search').value = source.title;
     }
     if (collection==='department' || collection==='hk-new') field('feature').value=collection;
     refreshTopics();

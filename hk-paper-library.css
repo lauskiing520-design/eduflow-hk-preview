@@ -1,0 +1,72 @@
+.hk-library {
+  --ink: #142e45;
+  --muted: #516577;
+  --border: #ced9df;
+  --blue: #1857ba;
+  color: var(--ink);
+  background: #f5f7f8;
+  padding: 30px 0 60px;
+}
+.hk-wrap { max-width: 1192px; padding: 0 clamp(18px, 4vw, 54px); margin: auto; }
+.hk-library a { color: var(--blue); text-underline-offset: .18em; }
+.hk-library :is(button, select) { font: inherit; }
+.hk-library :is(a, button, select, summary):focus-visible { outline: 3px solid #376ed9; outline-offset: 3px; }
+.hk-top { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.hk-top h1 { color: var(--ink); font-size: clamp(28px, 3.1vw, 42px); letter-spacing: -.035em; }
+.hk-crumb { font-size: 15px; margin-bottom: 6px; }
+.hk-compose { font-size: 16px; font-weight: 600; }
+.hk-subjects { display: flex; border-bottom: 1px solid #b9c8d1; gap: clamp(14px, 3vw, 36px); }
+.hk-subjects a { color: var(--muted); text-decoration: none; font-size: 17px; padding: 8px 2px 12px; border-bottom: 3px solid transparent; }
+.hk-subjects a[aria-current] { color: var(--blue); border-color: var(--blue); font-weight: 700; }
+.hk-shelves { display: grid; grid-template-columns: minmax(244px,.83fr) minmax(0,1.75fr); gap: clamp(22px,3.7vw,54px); align-items: start; padding-top: 26px; }
+.hk-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-bottom: 10px; }
+.hk-list-head h2 { font-size: 19px; }
+.hk-library :is(.hk-list-count, .hk-paper-meta, .hk-page, .hk-question-score, .hk-crumb, .hk-ref-meta) { color: var(--muted); }
+.hk-list-count, .hk-page, .hk-question-score { font-size: 15px; }
+.hk-list { display: grid; }
+.hk-list button { border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--ink); text-align: start; cursor: pointer; padding: 13px 14px; }
+.hk-list button:hover { background: #eaf0f5; }
+.hk-list button[aria-pressed="true"] { box-shadow: inset 3px 0 var(--blue); background: #e4edf9; color: #12498f; }
+.hk-list button span { display: block; font-size: 17px; font-weight: 650; line-height: 1.5; }
+.hk-list button small { display: block; color: var(--muted); font-size: 15px; margin-top: 4px; }
+.hk-mobile-picker { display: none; }
+.hk-reading { background: #fff; border: 1px solid #c7d4dd; border-top: 4px solid #234d75; box-shadow: 0 3px 0 #e7ecef; min-width: 0; }
+.hk-sheet-head { padding: 20px clamp(18px,2.3vw,30px) 18px; background: #f8fbfe; border-bottom: 1px solid var(--border); }
+.hk-sheet-head h2 { font-size: clamp(21px,2.1vw,28px); line-height: 1.4; text-wrap: initial; }
+.hk-sheet-head .hk-paper-meta { font-size: 16px; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.hk-sheet-body { padding: 18px clamp(18px,2.3vw,30px); }
+.hk-question-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 9px; }
+.hk-topic { font-size: 16px; font-weight: 700; color: #325576; }
+.hk-excerpt .hk-prompt { font-size: clamp(18px,1.5vw,21px); line-height: 1.75; color: #162c3e; white-space: pre-line; }
+.hk-excerpt ol { font-size: 17px; line-height: 1.65; }
+.hk-excerpt .hk-credit { color: var(--muted); font-size: 15px; margin-top: 10px; }
+.hk-excerpt figure { padding: 12px 0 3px; }
+.hk-excerpt img { display: block; margin: auto; max-width: 100%; height: auto; max-height: 200px; object-fit: contain; }
+.hk-pager { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.hk-pager button { background: white; border: 1px solid var(--border); border-radius: 4px; min-height: 36px; padding: 3px 10px; color: var(--blue); font-size: 15px; cursor: pointer; }
+.hk-pager button:disabled { color: #78828b; border-color: #dce3e9; cursor: default; }
+.hk-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 13px; }
+.hk-library .hk-open { color: #fff; background: var(--blue); font-weight: 650; font-size: 16px; padding: 8px 18px; border-radius: 4px; text-decoration: none; }
+.hk-open:hover { background: #144c9f; }
+.hk-references { margin-top: 30px; border-top: 1px solid #b9c8d1; }
+.hk-library summary { cursor: pointer; }
+.hk-references > summary { padding: 15px 0; font-size: 18px; font-weight: 650; }
+.hk-reference-group { background: white; border: 1px solid var(--border); margin: 8px 0; padding: 0 18px; scroll-margin-top: 6rem; }
+.hk-reference-group > summary { padding: 12px 0; font-size: 17px; }
+.hk-ref-list { list-style: none; margin: 0; padding: 0 0 8px; }
+.hk-ref-list > li { border-top: 1px solid #e4e9ed; padding: 12px 0; }
+.hk-ref-list .hk-ref-meta, .hk-ref-list details, .hk-ref-list .hk-extra { font-size: 15px; line-height: 1.65; }
+.hk-ref-list .hk-extra { margin-inline-end: 14px; }
+.hk-ref-list ul { padding-inline-start: 21px; }
+@media (max-width: 720px) {
+  .hk-library { padding: 19px 0 38px; }
+  .hk-top { margin-bottom: 15px; }
+  .hk-subjects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; }
+  .hk-subjects a { font-size: 16px; padding: 6px 3px; }
+  .hk-shelves { grid-template-columns: minmax(0,1fr); padding-top: 16px; gap: 13px; }
+  .hk-list-head, .hk-list { display: none; }
+  .hk-mobile-picker { display: grid; gap: 4px; font-size: 16px; color: var(--muted); }
+  .hk-mobile-picker select { color: var(--ink); background: white; border: 1px solid #91a7b7; border-radius: 4px; width: 100%; min-height: 44px; padding: 6px 9px; }
+  .hk-excerpt img { max-height: 175px; }
+  .hk-references { margin-top: 20px; }
+}
