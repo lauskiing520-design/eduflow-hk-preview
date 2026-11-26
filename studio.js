@@ -113,11 +113,22 @@
           for(const student of report.students){
             const text=!student.submitted?'未提交':student.max===0?'已提交探索紀錄':student.score+' / '+student.max+' 分';
             const cell=el('td',text);
-            if(student.submitted&&student.answers&&report.data?.kind==='app'){
-              cell.append(button('查看紀錄',()=>{
-                const holder=el('div');
-                submission.replaceChildren(el('h3',student.label+'的提交紀錄'),holder);
-                EduStudioApp.mount(holder,report.data,student.answers,()=>{},true);
+            const history=Array.isArray(student.hints)?student.hints:[];
+            if(history.length)cell.append(' · 已用 '+history.length+' 個提示');
+            const hasCanvas=student.submitted&&student.answers&&report.data?.kind==='app';
+            if(hasCanvas||history.length){
+              cell.append(button(hasCanvas?'查看紀錄':'查看提示',()=>{
+                submission.replaceChildren(el('h3',student.label+(hasCanvas?'的提交紀錄':'的提示紀錄')));
+                if(hasCanvas){
+                  const holder=el('div');submission.append(holder);
+                  EduStudioApp.mount(holder,report.data,student.answers,()=>{},true);
+                }
+                if(history.length){
+                  if(hasCanvas)submission.append(el('h4','操作提示'));
+                  submission.append(EduStudioPlayer.hintHistory(history));
+                }
+                submission.querySelector('h3').tabIndex=-1;
+                submission.querySelector('h3').focus();
               },'quiet'));
             }
             body.append(append('tr','',el('td',student.label),cell));

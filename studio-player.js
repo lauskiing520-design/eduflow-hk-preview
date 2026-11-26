@@ -16,17 +16,92 @@ window.EduStudioPlayer=(()=>{
       Number(data.a*answers[0]+data.b===data.target);
     return {score,max:data.kind==='match'?data.pairs.length:1,answers};
   }
-  function mount(host,data,receipt,submit,draft=null,saveDraft=null){
+  function hintHistory(records) {
+    const list=el('ol');
+    list.className='studio-hint-log';
+    records.forEach((record,index)=>{
+      const row=el('li'),source=record.source==='ai'?'AI 選擇的提示':'操作提示';
+      const meta=el('span',source+' '+(index+1));
+      meta.className='hint-source';
+      row.append(meta,el('p',record.text));
+      if(record.evidence){
+        const reading=el('p','當時畫面：'+record.evidence);
+        reading.className='hint-evidence';
+        row.append(reading);
+      }
+      list.prepend(row);
+    });
+    return list;
+  }
+  function hintPanel(options,read,finished) {
+    const host=el('aside'),title=el('h2','操作提示'),ask=el('button','給我一個提示');
+    host.className='studio-hint-panel';
+    host.setAttribute('aria-label','操作提示');
+    ask.type='button';
+    const intro=el('p',options.local?'展示版會按當前畫面，用本機規則選擇提示。':'按下按鈕後，學校配置的 AI 可參考目前畫布的讀數和選擇來挑選提示。');
+    const limit=el('p'),notice=el('p'),log=el('div');
+    intro.className='hint-intro';limit.className='hint-quota';notice.className='hint-status';
+    notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
+    let records=options.records,activeRequest=null,retry=null,lastShown=null,currentHint=null;
+    function redraw() {
+      const atLimit=records.length>=6;
+      ask.disabled=Boolean(activeRequest);
+      ask.textContent=atLimit?'重看這個畫面的提示':'給我一個提示';
+      ask.hidden=finished;intro.hidden=finished;
+      limit.textContent=atLimit?'已用 6 / 6 個提示。回到曾取得提示的畫面，可重看對應的提示。':'已用 '+records.length+' / 6 個提示';
+      const history=hintHistory(records);
+      log.replaceChildren();
+      if(history.children.length>1){
+        const latest=el('ol'),older=el('details');
+        latest.className=history.className;
+        const index=currentHint?records.findIndex(h=>h.text===currentHint.text&&h.evidence===currentHint.evidence&&h.source===currentHint.source):-1;
+        const shown=index>=0?history.children[records.length-1-index]:history.firstElementChild;
+        latest.append(shown);
+        older.append(el('summary',(index>=0&&index<records.length-1?'其他 ':'先前 ')+history.children.length+' 個提示'),history);
+        log.append(latest,older);
+      }else log.append(history);
+    }
+    function stateChanged() {
+      if(lastShown!==null&&lastShown!==JSON.stringify(read())){
+        lastShown=null;currentHint=null;redraw();
+        notice.textContent='畫面已改變，下方保留先前操作的提示。';
+      }
+    }
+    ask.onclick=async()=>{
+      if(finished||ask.disabled)return;
+      const answers=structuredClone(read()),signature=JSON.stringify(answers);
+      if(!retry||retry.signature!==signature)retry={signature,id:crypto.randomUUID().replaceAll('-','')};
+      activeRequest=retry;lastShown=null;currentHint=null;redraw();
+      notice.textContent='正在查看這次操作…';
+      try {
+        const result=await options.request(answers,activeRequest.id);
+        if(!Array.isArray(result?.hints))throw Error('未能讀取提示。');
+        records=result.hints;retry=null;
+        const current=signature===JSON.stringify(read());
+        lastShown=current?signature:null;
+        currentHint=current&&!finished?(result.hint||records.at(-1)):null;
+        if(!finished)notice.textContent=current?'已收到提示。':'畫面已改變，新收到的提示對應剛才的操作。';
+      } catch(error) {
+        if(!finished)notice.textContent=error.message||'未能取得提示，可再試一次。';
+      } finally {
+        activeRequest=null;redraw();
+      }
+    };
+    host.append(title,intro,ask,limit,notice,log);redraw();
+    return {host,stateChanged,finish:()=>{finished=true;lastShown=null;currentHint=null;notice.textContent='';redraw();}};
+  }
+  function mount(host,data,receipt,submit,draft=null,saveDraft=null,hints=null){
     const form=el('form'),instruction=el('p',data.instructions),fields=el('fieldset'),legend=el('legend','我的作答');
     fields.className='studio-player-fields';fields.append(legend);
     const message=el('p');message.setAttribute('role','status');
     const previous=receipt?.answers||draft?.answers;
-    let read,canvas;
+    let read,canvas,help;
     if(data.kind==='app'){
       canvas=el('div');fields.append(canvas);
       let state=previous||EduStudioApp.initial(data);
-      EduStudioApp.mount(canvas,data,state,value=>{state=value;},Boolean(receipt));
       read=()=>state;
+      EduStudioApp.mount(canvas,data,state,value=>{state=value;help?.stateChanged();},Boolean(receipt));
+      if(Array.isArray(hints?.records)&&typeof hints.request==='function')help=hintPanel(hints,read,Boolean(receipt));
     }else if(data.kind==='match'){
       const selects=data.lefts.map((left,i)=>{
         const label=el('label',left),s=el('select');label.className='match-line';s.required=true;
@@ -59,10 +134,16 @@ window.EduStudioPlayer=(()=>{
     const bar=el('div');bar.className='actions';bar.append(button,save);
     const report=r=>{
       fields.disabled=true;bar.hidden=true;
+      help?.finish();
       if(canvas){canvas.inert=false;EduStudioApp.mount(canvas,data,r.answers,()=>{},true);}
       message.textContent=r.max===0?'已提交探索紀錄。':'已完成，得分 '+r.score+' / '+r.max+'。';
     };
-    form.append(instruction,fields,bar,message);host.replaceChildren(form);
+    form.append(instruction);
+    if(help){
+      const workspace=el('div');workspace.className='studio-play-layout';
+      workspace.append(fields,help.host);form.append(workspace);
+    }else form.append(fields);
+    form.append(bar,message);host.replaceChildren(form);
     if(receipt){report(receipt);return;}
     if(draft?.revision)message.textContent='已讀取上次保存的進度。';
     save.onclick=async()=>{
@@ -81,5 +162,5 @@ window.EduStudioPlayer=(()=>{
       catch(error){message.textContent=error.message;button.disabled=save.disabled=false;fields.disabled=false;if(canvas)canvas.inert=false;}
     };
   }
-  return {matchPreview,scorePreview,mount};
+  return {matchPreview,scorePreview,mount,hintHistory};
 })();

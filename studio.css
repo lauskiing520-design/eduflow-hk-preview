@@ -41,3 +41,17 @@
 .studio .app-canvas-body {margin-top:.75rem}
 .studio .submission-preview:not(:empty) {margin-top:1rem;border-top:1px solid #d5e2e9;padding-top:.8rem}
 @media(max-width:49rem){.studio .app-builder{grid-template-columns:minmax(0,1fr)}.studio .app-builder-tools{display:contents}.studio .app-builder-tools>.panel+.panel{grid-row:3;margin-top:0}.studio .app-builder>.panel{margin:0}}
+
+.studio.learner:has(.studio-play-layout){max-width:70rem}
+.studio-play-layout{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(14rem,.9fr);gap:clamp(1rem,3vw,2rem);align-items:start}
+.studio-hint-panel{min-width:0;border-inline-start:2px solid #94b3c8;padding-inline-start:clamp(.85rem,2vw,1.4rem)}
+.studio .studio-hint-panel h2{font-size:1.18rem}
+.studio .hint-intro,.studio .hint-evidence,.studio .hint-quota,.studio .hint-source{color:#476273}
+.studio .hint-quota,.studio .hint-source{font-size:.92rem}
+.studio .hint-quota{margin:.45rem 0}
+.studio .hint-status:empty{display:none}
+.studio .studio-hint-log{list-style:none;margin:0;padding:0;overflow-wrap:anywhere}
+.studio .studio-hint-log li{border-top:1px solid #d5e1e8;padding:.65rem 0 .2rem}
+.studio .studio-hint-log li p{margin:.16rem 0 .35rem}
+.studio .hint-source{font-weight:650}
+@media(max-width:47rem){.studio-play-layout{grid-template-columns:minmax(0,1fr)}.studio .studio-hint-panel{border-inline-start:0;border-top:1px solid #bacfdd;padding:1rem 0 0}}

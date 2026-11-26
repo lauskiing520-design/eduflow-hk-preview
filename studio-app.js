@@ -244,6 +244,108 @@
     return {answers,score:c ? Number(meets(compile(c.expr,data)(answers),c)) : 0,maximum:c ? 1 : 0};
   }
 
+  function readingText(value,unit) {
+    if (!Number.isFinite(value)) return '未能計算';
+    return format(value)+(unit==='°'?'°':unit?' '+unit:'');
+  }
+
+  function geometryIssue(data,state) {
+    const points=data.points, xy=state.points;
+    for (const a of points.filter(point=>point.draggable)) {
+      const b=points.find(point=>point.id!==a.id && xy[a.id].every((n,i)=>n===xy[point.id][i]));
+      if (b) return {label:'頂點位置',text:a.label+' 與 '+b.label+' 重疊。',
+        move:{id:'separate-points',text:'把 '+a.label+' 稍為移開，再看兩個點之間的距離有甚麼變化。'}};
+    }
+    for (const shape of data.shapes.filter(s=>s.type==='polygon' && s.points.length===3)) {
+      const vertices=shape.points.map(id=>points.find(p=>p.id===id));
+      const handle=vertices.find(p=>p.draggable);
+      if (!handle) continue;
+      const [a,b,c]=shape.points.map(id=>xy[id].map(n=>Math.round(n*10)));
+      if ((b[0]-a[0])*(c[1]-a[1])===(b[1]-a[1])*(c[0]-a[0])) {
+        return {label:'圖形位置',text:vertices.map(p=>p.label).join('、')+' 在同一直線上。',
+          move:{id:'open-triangle',text:'把 '+handle.label+' 移離這條直線，觀察三角形的形狀怎樣改變。'}};
+      }
+    }
+    return null;
+  }
+
+  // Derive guidance only from validated pupil-visible controls, readings and the current scene.
+  // Candidate actions are questions and small experiments, never solved control settings.
+  function coach(raw,answers) {
+    const data=validate(raw), state=stateFor(data,answers), observations=[], moves=[];
+    const see=(label,text)=>observations.push({label,text});
+    const suggest=(id,text)=>moves.push({id,text});
+    const challenge=data.challenge;
+    const normalize=expr=>expr.replace(/\s/g,'').replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+    const matching=challenge && data.outputs.find(out=>normalize(out.expr)===normalize(challenge.expr));
+    const focus=matching || data.outputs[0];
+    const tokens=new Set((challenge?.expr || focus?.expr || '').match(/[A-Za-z][A-Za-z0-9_]*/g) || []);
+    const sliders=data.inputs.filter(i=>tokens.has(i.id));
+    const points=data.points.filter(p=>p.draggable);
+    const handles=points.filter(p=>tokens.has(p.id));
+    const input=sliders.find(i=>state.values[i.id]!==i.value) || sliders[0] || data.inputs[0];
+    const handle=handles.find(p=>state.points[p.id][0]!==p.x || state.points[p.id][1]!==p.y) || handles[0] || points[0];
+    const value=challenge?compile(challenge.expr,data)(state):null;
+    const goalMet=challenge && meets(value,challenge);
+    const issue=geometryIssue(data,state);
+    if (issue) {
+      see(issue.label,issue.text);
+      if (!goalMet && (!challenge || handles.length)) moves.push(issue.move);
+    }
+    if (challenge) {
+      const relation=goalMet?'已達目標範圍':value<challenge.target?'低於目標':'高於目標';
+      const current=matching?matching.label+' '+readingText(value,matching.unit):'目前的挑戰讀數';
+      see('挑戰進度',Number.isFinite(value)?current+'，'+relation+'。':'目前無法算出挑戰讀數。');
+      if (goalMet) suggest('explain-goal','你會用哪個畫面讀數或操作紀錄，說明自己已達到目標？');
+    }
+    if (data.story) {
+      const scene=data.story.scenes.find(s=>s.id===state.path[state.path.length-1]);
+      see(scene.choices.length?'目前情境':'你的結局',scene.text);
+      if (scene.choices.length) {
+        see('可選行動',scene.choices.map(choice=>choice.label).join(' ／ '));
+        suggest('predict-choice','先不按選項。你預計「'+scene.choices[0].label+'」會帶來甚麼結果？');
+        suggest('support-choice','情境中哪一句話支持你的選擇？');
+      } else {
+        const previous=data.story.scenes.find(s=>s.id===state.path[state.path.length-2]);
+        const choice=previous.choices.find(c=>c.to===scene.id);
+        see('剛才的選擇',choice.label);
+        suggest('reflect-choice','回看剛才「'+choice.label+'」的決定，這個結局有甚麼地方跟你的預測不同？');
+        suggest('trace-outcome','從結局挑出一句，說明剛才的決定可能帶來甚麼影響。');
+      }
+    }
+    if (focus && focus!==matching) see(focus.label,readingText(compile(focus.expr,data)(state),focus.unit));
+    if (input && !goalMet && (!challenge || sliders.length || !handles.length)) {
+      const value=String(state.values[input.id]);
+      see(input.label,value);
+      const metric=challenge?'挑戰進度':focus?'「'+focus.label+'」':'畫面';
+      suggest('vary-slider','先記下'+metric+'，只把「'+input.label+'」從 '+value+' 移動一格。你觀察到甚麼變化？');
+      if (challenge && !goalMet && sliders.length) suggest('compare-target',
+        '把「'+input.label+'」調整一格後，與剛才相比，挑戰讀數更接近目標、離得更遠，還是相同？');
+    }
+    if (handle && !issue && !goalMet && (!challenge || handles.length || !sliders.length)) {
+      see('頂點 '+handle.label,'('+state.points[handle.id].join(', ')+')');
+      const quantity=focus?'「'+focus.label+'」':challenge?'挑戰進度':'圖形';
+      suggest('move-vertex','只拖動頂點 '+handle.label+'，其餘頂點留在原位。'+quantity+' 有甚麼變化？');
+    }
+    if (focus && (input || handle) && !goalMet) {
+      const measure=compile(focus.expr,data), startValue=measure(initial(data)), currentValue=measure(state);
+      const from=readingText(startValue,focus.unit), now=readingText(currentValue,focus.unit);
+      if (Number.isFinite(startValue) && Number.isFinite(currentValue) && from!==now) {
+        const comparison={id:'compare-start',text:'在起始設定下，「'+focus.label+'」是 '+from+'，目前是 '+now+'。哪一項改動可能解釋這個差別？'};
+        if (issue || data.story) moves.push(comparison);
+        else moves.unshift(comparison);
+      } else if (!issue && Number.isFinite(currentValue)) {
+        suggest('predict-reading','先預測「'+focus.label+'」會保持 '+now+' 還是改變，再用一次操作核對你的想法。');
+      }
+    }
+    for (const out of data.outputs.filter(out=>out!==focus)) {
+      if (observations.length>=5) break;
+      see(out.label,readingText(compile(out.expr,data)(state),out.unit));
+    }
+    if (!moves.length) suggest('read-goal','對照挑戰要求，你可以從目前的畫面找到哪項線索？');
+    return {observations:observations.slice(0,5),moves:moves.slice(0,5)};
+  }
+
   // Display code below shares the expression parser and state rules with the submission worker.
   const svgNS = 'http://www.w3.org/2000/svg';
   function svg(tag,attributes) {
@@ -418,7 +520,7 @@
         const evaluate=compile(out.expr,data);
         redraw.push(()=>{
           const n=evaluate(state);
-          value.textContent=Number.isFinite(n)?(format(n)+(out.unit=== '°'?'°':out.unit?' '+out.unit:'')):'未能計算';
+          value.textContent=readingText(n,out.unit);
         });
         item.append(label,value); values.append(item);
       }
@@ -443,7 +545,7 @@
     if (n!==0 && (Math.abs(n)<0.001 || Math.abs(n)>=1e9)) return n.toExponential(3);
     return numericFormat.format(Object.is(n,-0)?0:n);
   }
-  const api={validate,initial,answer,mount};
+  const api={validate,initial,answer,coach,mount};
   root.EduStudioApp=api;
   if (typeof module!=='undefined' && module.exports) module.exports=api;
 })(globalThis);

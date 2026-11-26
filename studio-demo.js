@@ -4,6 +4,7 @@
   const storage='eduflow:classroom-studio:v1';
   const rooms=[{id:'a'.repeat(32),name:'中一甲班'},{id:'b'.repeat(32),name:'中一乙班'}];
   const a0='1'.repeat(32), t0='2'.repeat(32), p0='3'.repeat(32);
+  const areaItem='6'.repeat(32), areaPin='7'.repeat(32);
   const activityPath='/api/eduflow/ai/studio/activities', tutorPath='/api/eduflow/ai/studio/tutors';
   const examples={
     match:{kind:'match',title:'辨認移項後的方程',instructions:'把每條方程與正確的第一步配對。',pairs:[
@@ -22,7 +23,17 @@
     return {rev:0,activities,pins,receipts:{},drafts:{},pinRequests:{},tutors:{[t0]:clone(initialTutor)},
       published:{[rooms[0].id+':'+t0]:clone(initialTutor)},chats:{},requests:{}};
   }
-  function read(){const value=localStorage.getItem(storage);return value?JSON.parse(value):seed();}
+  function read(){
+    const value=localStorage.getItem(storage);
+    const s=value?JSON.parse(value):seed();
+    // Introduce the sample to existing demo classrooms without replacing teacher revisions.
+    if(!s.activities[areaItem]){
+      const data=EduStudioAppExamples.build('長方形面積挑戰');
+      s.activities[areaItem]={id:areaItem,revision:1,data};
+      s.pins[areaPin]={id:areaPin,item:areaItem,room:rooms[0].id,revision:1,active:true,data:clone(data)};
+    }
+    return s;
+  }
   const room=id=>rooms.find(x=>x.id===id);
   const arr=Object.values;
   const ident=s=>typeof s==='string'&&/^[0-9a-f]{32}$/i.test(s);
@@ -102,6 +113,7 @@
         const maximum=p.data.kind==='match'?p.data.pairs.length:p.data.kind==='app'?Number(!!p.data.challenge):1;
         return {title:p.data.title,className:room(p.room).name,...(p.data.kind==='app'?{data:clone(p.data)}:{}),
           students:[{label:'示例學生 01',submitted:!!r,score:r?.score??null,max:r?.max??maximum,
+            ...(p.data.kind==='app'?{hints:studentHints(s,p.id)}:{}),
             ...(p.data.kind==='app'&&r?{answers:r.answers}:{})}]};
       }
       return {rooms,items:arr(s.activities).map(x=>({id:x.id,title:x.data.title,kind:x.data.kind,revision:x.revision}))};
@@ -150,11 +162,35 @@
     }
     fail('找不到指定的活動或班級。',404);
   }
+  function studentHints(s,pin){
+    return (s.appHints?.[pin]||[]).map(({text,evidence,source})=>({text,evidence,source}));
+  }
+  function requestHint(s,p,b){
+    if(!ident(b.requestId))fail('請重新開啟提示。');
+    if(s.receipts[p.id])fail('這份活動已提交，可重看之前的提示。',409);
+    const state=EduStudioApp.answer(p.data,b.answers).answers;
+    const key=JSON.stringify(state);
+    s.appHints??={};
+    const previous=s.appHints[p.id]??=[];
+    const retried=previous.find(row=>row.requestId===b.requestId);
+    if(retried&&retried.key!==key)fail('操作內容已變更，請重新要求提示。',409);
+    const priorIndex=previous.findIndex(row=>row.key===key);
+    if(priorIndex!==-1){const hints=studentHints(s,p.id);return {hint:hints[priorIndex],hints};}
+    if(previous.length>=6)fail('這項活動已使用六個提示，你仍可繼續操作和提交。',429);
+    const {observations,moves}=EduStudioApp.coach(p.data,state);
+    const evidence=observations.map(row=>row.label+'：'+row.text).join(' · ');
+    previous.push({key,requestId:b.requestId,text:moves[0].text,evidence,source:'guided'});
+    save(s);
+    const hints=studentHints(s,p.id);
+    return {hint:hints[hints.length-1],hints};
+  }
   function studentActivity(s,b){
-    const p=s.pins[b?.pin];if(!p?.active)fail('這個活動已收起，請返回課室。',404);
+    const p=b?.pin==='area-lab'?arr(s.pins).find(pin=>pin.active&&pin.item===areaItem&&pin.room===rooms[0].id):s.pins[b?.pin];
+    if(!p?.active)fail('這個活動已收起，請返回課室。',404);
     const d=p.data,data=publicData(d,p.options),empty={revision:0,answers:null};
     s.drafts??={};let draft=s.drafts[p.id]||empty;
     if(d.kind==='app'){
+      if(b.action==='hint')return requestHint(s,p,b);
       if(!['read','draft','submit'].includes(b.action))fail('未支援這個操作。');
       if(b.action!=='read'&&!s.receipts[p.id]){
         const result=EduStudioApp.answer(d,b.answers,b.action==='submit');
@@ -167,7 +203,8 @@
           draft={revision:draft.revision+1,answers:result.answers};s.drafts[p.id]=draft;save(s);
         }
       }
-      return {id:p.id,data,receipt:s.receipts[p.id]||null,draft};
+      return {id:p.id,data,receipt:s.receipts[p.id]||null,draft,hints:studentHints(s,p.id),
+        teacherView:'studio.html?class='+encodeURIComponent(p.room)+'#app/'+encodeURIComponent(p.item)};
     }
     if(!s.receipts[p.id]&&['submit','draft'].includes(b.action)){
       const a=b.answers,max=d.kind==='match'?d.pairs.length:1;

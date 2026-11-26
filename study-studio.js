@@ -45,12 +45,20 @@
   async function activity(pin){
     const post=(action,extra)=>api('studio-activity',{action,pin,...extra});
     const d=await post('read');$('heading').textContent=d.data.title;$('scope').textContent='課堂互動活動';
+    const teacherLink=document.querySelector('.studio-mast nav a[href="studio.html"]');
+    if(teacherLink&&typeof d.teacherView==='string'&&d.teacherView.startsWith('studio.html?')){
+      teacherLink.href=d.teacherView;
+      teacherLink.textContent='到教師端查看這項活動';
+    }
     const box=el('section',undefined,'panel');work.replaceChildren(box);
     let revision=d.draft?.revision||0;
     EduStudioPlayer.mount(box,d.data,d.receipt,async answers=>(await post('submit',{answers,revision})).receipt,
       d.draft,async answers=>{
         const result=await post('draft',{answers,revision});revision=result.draft.revision;
-      });
+      },Array.isArray(d.hints)?{
+        records:d.hints,local:Boolean(window.EduStudioDemo),
+        request:(answers,requestId)=>post('hint',{answers,requestId})
+      }:null);
   }
   try{
     if(!token)throw Error('請從老師提供的學生固定入口開啟這項活動或導師。');
