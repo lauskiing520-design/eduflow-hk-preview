@@ -8,6 +8,10 @@ window.EduStudioPlayer=(()=>{
       choices:[...data.pairs.slice(1),data.pairs[0]].map(p=>p.right)};
   }
   function scorePreview(data,view,answers){
+    if(data.kind==='app'){
+      const outcome=EduStudioApp.answer(data,answers,true);
+      return {score:outcome.score,max:outcome.maximum,answers:outcome.answers};
+    }
     const score=data.kind==='match'?answers.filter((v,i)=>view.choices[v]===data.pairs[i].right).length:
       Number(data.a*answers[0]+data.b===data.target);
     return {score,max:data.kind==='match'?data.pairs.length:1,answers};
@@ -17,8 +21,13 @@ window.EduStudioPlayer=(()=>{
     fields.className='studio-player-fields';fields.append(legend);
     const message=el('p');message.setAttribute('role','status');
     const previous=receipt?.answers||draft?.answers;
-    let read;
-    if(data.kind==='match'){
+    let read,canvas;
+    if(data.kind==='app'){
+      canvas=el('div');fields.append(canvas);
+      let state=previous||EduStudioApp.initial(data);
+      EduStudioApp.mount(canvas,data,state,value=>{state=value;},Boolean(receipt));
+      read=()=>state;
+    }else if(data.kind==='match'){
       const selects=data.lefts.map((left,i)=>{
         const label=el('label',left),s=el('select');label.className='match-line';s.required=true;
         s.add(new Option('選擇配對',''));data.choices.forEach((v,j)=>s.add(new Option(v,String(j))));
@@ -48,24 +57,28 @@ window.EduStudioPlayer=(()=>{
     const button=el('button','提交作答');button.type='submit';button.className='primary';
     const save=el('button','保存進度');save.type='button';save.hidden=!saveDraft;
     const bar=el('div');bar.className='actions';bar.append(button,save);
-    const report=r=>{fields.disabled=true;bar.hidden=true;message.textContent='已完成，得分 '+r.score+' / '+r.max+'。';};
+    const report=r=>{
+      fields.disabled=true;bar.hidden=true;
+      if(canvas){canvas.inert=false;EduStudioApp.mount(canvas,data,r.answers,()=>{},true);}
+      message.textContent=r.max===0?'已提交探索紀錄。':'已完成，得分 '+r.score+' / '+r.max+'。';
+    };
     form.append(instruction,fields,bar,message);host.replaceChildren(form);
     if(receipt){report(receipt);return;}
     if(draft?.revision)message.textContent='已讀取上次保存的進度。';
     save.onclick=async()=>{
       if(!saveDraft||save.disabled)return;const answers=read();
-      button.disabled=save.disabled=fields.disabled=true;
+      button.disabled=save.disabled=fields.disabled=true;if(canvas)canvas.inert=true;
       try{await saveDraft(answers);message.textContent='進度已保存，可從學生入口繼續。';}
       catch(err){message.textContent=err.message;}
-      finally{button.disabled=save.disabled=fields.disabled=false;}
+      finally{button.disabled=save.disabled=fields.disabled=false;if(canvas)canvas.inert=false;}
     };
     form.onsubmit=async event=>{
       event.preventDefault();if(button.disabled)return;
       const answers=read();
       if(data.kind==='match'&&new Set(answers).size!==answers.length){message.textContent='每個選項只可配對一次，請檢查重複的選項。';return;}
-      button.disabled=save.disabled=true;fields.disabled=true;message.textContent='正在提交…';
+      button.disabled=save.disabled=true;fields.disabled=true;if(canvas)canvas.inert=true;message.textContent='正在提交…';
       try{const r=await submit(answers);report(r);}
-      catch(error){message.textContent=error.message;button.disabled=save.disabled=false;fields.disabled=false;}
+      catch(error){message.textContent=error.message;button.disabled=save.disabled=false;fields.disabled=false;if(canvas)canvas.inert=false;}
     };
   }
   return {matchPreview,scorePreview,mount};

@@ -22,3 +22,22 @@
 @media(max-width:32rem){.studio{padding-inline:.72rem}.studio-head{display:block}.studio label.room{max-width:none}.studio .line{display:block}.studio .line .actions{margin-top:.4rem}.studio .pair{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.studio .pair button{justify-self:start;grid-column:2}.studio .match-line{grid-template-columns:1fr}.studio .block-head{align-items:start}.studio .panel{padding:.85rem}}
 
 .studio-mast nav{display:flex;flex-wrap:wrap;gap:.4rem 1rem;justify-content:flex-end}.studio-mast>span{white-space:nowrap;margin-right:.6rem}.studio-local{margin:.6rem 0;color:#526779}.studio-local p{max-width:60ch}.studio .studio-local summary{font-size:.95rem;color:#486477}
+.studio .app-builder {
+  display:grid;grid-template-columns:minmax(16rem,.86fr) minmax(0,1.24fr);gap:1.3rem;align-items:start
+}
+.studio .app-builder-tools,.studio .app-canvas-body {min-width:0}
+.studio .app-builder h2 {font-size:clamp(1.15rem,2vw,1.45rem);overflow-wrap:anywhere}
+.studio .app-builder .app-example {
+  display:block;width:100%;text-align:left;border:0;border-radius:0;
+  border-top:1px solid #dbe4ea;padding:.88rem .2rem;color:#194f84
+}
+.studio .app-builder .app-example:hover,.studio .app-builder .app-example:focus-visible {background:#eef4fa}
+.studio .app-builder-tools textarea {line-height:1.6}
+.studio .app-builder-tools details {margin-top:.8rem}
+.studio .app-builder .app-work-status:not(:empty) {margin:.8rem 0 0;color:#315970;font-size:.94rem}
+.studio .app-builder .app-work-status.error {color:#a63730}
+.studio .app-builder .mode-note {margin:.8rem 0 0;font-size:.94rem}
+.studio .formula-example {white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f7fa;padding:.65rem .85rem;font-size:.94rem}
+.studio .app-canvas-body {margin-top:.75rem}
+.studio .submission-preview:not(:empty) {margin-top:1rem;border-top:1px solid #d5e2e9;padding-top:.8rem}
+@media(max-width:49rem){.studio .app-builder{grid-template-columns:minmax(0,1fr)}.studio .app-builder-tools{display:contents}.studio .app-builder-tools>.panel+.panel{grid-row:3;margin-top:0}.studio .app-builder>.panel{margin:0}}

@@ -1,0 +1,75 @@
+/* Live worksheet inside the teacher preview and the student's activity. */
+.ea-app {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  container-type: inline-size;
+}
+.ea-app .ea-geometry {
+  min-width: 0;
+}
+.ea-app .ea-board {
+  display: block;
+  width: min(100%, 27rem);
+  height: auto;
+  margin-inline: auto;
+  border: 1px solid #bcd0de;
+  background: #f4f9fc;
+  border-radius: .4rem;
+  user-select: none;
+}
+.ea-grid { stroke: #d9e7ed; stroke-width: .21; fill: none; pointer-events: none; }
+.ea-shape { stroke: #24678b; stroke-width: .9; fill: #d8ebf2; fill-opacity: .74; }
+.ea-polygon:nth-of-type(2n), .ea-circle { fill: #d5ebde; stroke: #247464; }
+.ea-line { fill: none; }
+.ea-hit { fill: transparent; }
+.ea-handle { cursor: grab; touch-action: none; }
+.ea-handle:active { cursor: grabbing; }
+.ea-dot { fill: #174e74; stroke: white; stroke-width: .5; }
+.ea-handle:hover .ea-dot { fill: #0a334f; stroke-width: .75; }
+.ea-label {
+  font: 650 4.35px system-ui, sans-serif;
+  fill: #143d53;
+  paint-order: stroke; stroke: #f4f9fc; stroke-width: .75px;
+  pointer-events: none;
+}
+.ea-tools { display: grid; align-content: start; gap: .8rem; min-width: 0; }
+.ea-app .ea-knobs, .ea-app .ea-coord-pair { display: grid; gap: .75rem; }
+.ea-app .ea-slider, .ea-app .ea-coord-pair label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .15rem .55rem;
+  align-items: center;
+  margin: 0;
+}
+.ea-app input[type=range] {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 2rem;
+  accent-color: #226186;
+  margin: 0;
+}
+.ea-val, .ea-coordinate-value { color: #205975; font-variant-numeric: tabular-nums; }
+.ea-app .ea-coordinates { margin-top: .45rem; }
+.ea-app .ea-coord-pair { grid-template-columns: 1fr 1fr; margin-block: .25rem .65rem; }
+.ea-app .ea-readings { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(8rem,100%),1fr)); margin: 0; gap: .7rem 1rem; }
+.ea-app .ea-readings > div { border-top: 2px solid #bdd4df; padding-top: .45rem; min-width: 0; }
+.ea-app .ea-readings dt { font-size: .94rem; color: #405e6b; overflow-wrap: anywhere; }
+.ea-app .ea-readings dd { margin: 0; color: #17465e; font-size: 1.25rem; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ea-app .ea-task { background: #f0f5f7; border-left: 3px solid #8aa6b3; padding: .65rem .85rem; overflow-wrap: anywhere; }
+.ea-app .ea-task p { margin: 0; }
+.ea-app .ea-goal { color: #566a75; font-size: .93rem; }
+.ea-app .ea-task[data-met=true] { border-color: #257861; background: #eff7f2; }
+.ea-app .ea-task[data-met=true] .ea-goal { color: #225d4f; }
+.ea-story { grid-column: 1 / -1; border-left: 3px solid #2e7190; padding: .1rem 0 .4rem 1rem; }
+.ea-story .ea-narrative { margin: .5rem 0 .85rem; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.ea-story .ea-choices { display: grid; justify-items: start; gap: .5rem; }
+.ea-story .ea-choice { height: auto; width: fit-content; max-width: 100%; text-align: start; justify-content: start; }
+.ea-story-history { margin-top: .6rem; }
+.ea-story-history ol { margin: .25rem 0; padding-inline-start: 1.5rem; }
+.ea-story-nav { display: flex; gap: .4rem; flex-wrap: wrap; }
+@container (min-width: 30rem) {
+  .ea-app.ea-with-geometry > .ea-geometry:has(+ .ea-tools) { grid-column: 1; grid-row: 1; }
+  .ea-app.ea-with-geometry > .ea-tools { grid-column: 2; grid-row: 1; min-width: 10.5rem; }
+  .ea-app.ea-with-geometry:has(> .ea-story) > :is(.ea-tools,.ea-geometry) { grid-row: 2; }
+}

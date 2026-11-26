@@ -35,6 +35,7 @@
   }
   function validate(d){
     if(!d||!clean(d.title,100)||!clean(d.instructions,600))fail('請填寫活動名稱（最多 100 字）和說明（最多 600 字）。');
+    if(d.kind==='app')return EduStudioApp.validate(d);
     if(d.kind==='match'){
       if(!Array.isArray(d.pairs)||d.pairs.length<2||d.pairs.length>8||
         d.pairs.some(p=>!clean(p?.left,160)||!clean(p?.right,160)))fail('請提供 2 至 8 組完整配對，每項最多 160 字。');
@@ -86,26 +87,50 @@
   }
   function activity(s,url,b){
     if(!b){
+      if(url.searchParams.has('work')){
+        const key=url.searchParams.get('work');
+        if(key!=='new'&&(!ident(key)||s.activities[key]?.data?.kind!=='app'))fail('找不到這份應用。',404);
+        return {draft:s.work?.[key]??{revision:0,sourceRevision:s.activities[key]?.revision??0,brief:'',base:null}};
+      }
       if(url.searchParams.has('item')){
         const item=s.activities[url.searchParams.get('item')];if(!item)fail('找不到這個活動。',404);
         return {...item,pins:arr(s.pins).filter(p=>p.item===item.id).map(({id,room:r,revision,active})=>({id,room:r,className:room(r).name,revision,active}))};
       }
       if(url.searchParams.has('pin')){
         const p=s.pins[url.searchParams.get('pin')];if(!p)fail('找不到派發記錄。',404);
-        const r=s.receipts[p.id];return {title:p.data.title,className:room(p.room).name,students:[{label:'示例學生 01',submitted:!!r,score:r?.score??null,max:r?.max??(p.data.kind==='match'?p.data.pairs.length:1)}]};
+        const r=s.receipts[p.id];
+        const maximum=p.data.kind==='match'?p.data.pairs.length:p.data.kind==='app'?Number(!!p.data.challenge):1;
+        return {title:p.data.title,className:room(p.room).name,...(p.data.kind==='app'?{data:clone(p.data)}:{}),
+          students:[{label:'示例學生 01',submitted:!!r,score:r?.score??null,max:r?.max??maximum,
+            ...(p.data.kind==='app'&&r?{answers:r.answers}:{})}]};
       }
       return {rooms,items:arr(s.activities).map(x=>({id:x.id,title:x.data.title,kind:x.data.kind,revision:x.revision}))};
     }
-    if(b.action==='generate')return {data:draft(b.kind,b.brief)};
+    if(b.action==='generate')return {data:b.kind==='app'?EduStudioAppExamples.build(b.brief,b.base):draft(b.kind,b.brief)};
+    if(b.action==='work'){
+      const key=b.id;
+      if(key!=='new'&&(!ident(key)||s.activities[key]?.data?.kind!=='app'))fail('找不到這份應用。',404);
+      if(typeof b.brief!=='string'||b.brief.length>1200||!Number.isSafeInteger(b.sourceRevision)||b.sourceRevision<0||
+        !Number.isSafeInteger(b.revision)||b.revision<0||!Object.hasOwn(b,'base'))fail('草稿內容無效。');
+      const current=s.activities[key]?.revision??0;
+      if(b.sourceRevision!==current)fail('原應用已在另一分頁更新，請先讀取最新版本。',409);
+      const old=s.work?.[key]??{revision:0,sourceRevision:current,brief:'',base:null};
+      const next={sourceRevision:b.sourceRevision,brief:b.brief,base:b.base==null?null:EduStudioApp.validate(b.base)};
+      if(old.brief===next.brief&&old.sourceRevision===next.sourceRevision&&JSON.stringify(old.base)===JSON.stringify(next.base))return {draft:old};
+      if(b.revision!==old.revision)fail('另一分頁已更新草稿，請重新讀取。',409);
+      s.work??={};s.work[key]={revision:old.revision+1,...next};save(s);
+      return {draft:s.work[key]};
+    }
     if(b.action==='unpin'){
       const p=s.pins[b.pin];if(!p)fail('找不到派發記錄。',404);p.active=false;save(s);return {removed:true};
     }
     if(!ident(b.id))fail('活動識別碼無效。');
     const old=s.activities[b.id];
     if(b.action==='save'){
-      if(old&&JSON.stringify(old.data)===JSON.stringify(b.data))return {id:old.id,revision:old.revision};
+      const data=validate(b.data);
+      if(old&&JSON.stringify(old.data)===JSON.stringify(data))return {id:old.id,revision:old.revision};
       if((old?.revision||0)!==b.revision)fail('草稿已更新，請重新載入。',409);
-      const item={id:b.id,revision:b.revision+1,data:validate(b.data)};s.activities[item.id]=item;save(s);
+      const item={id:b.id,revision:b.revision+1,data};s.activities[item.id]=item;save(s);
       return {id:item.id,revision:item.revision};
     }
     if(b.action==='pin'&&old&&room(b.room)){
@@ -129,6 +154,21 @@
     const p=s.pins[b?.pin];if(!p?.active)fail('這個活動已收起，請返回課室。',404);
     const d=p.data,data=publicData(d,p.options),empty={revision:0,answers:null};
     s.drafts??={};let draft=s.drafts[p.id]||empty;
+    if(d.kind==='app'){
+      if(!['read','draft','submit'].includes(b.action))fail('未支援這個操作。');
+      if(b.action!=='read'&&!s.receipts[p.id]){
+        const result=EduStudioApp.answer(d,b.answers,b.action==='submit');
+        const same=JSON.stringify(draft.answers)===JSON.stringify(result.answers);
+        if((b.revision??0)!==draft.revision&&!(b.action==='draft'&&same))fail('進度已在另一分頁更新，請重新讀取。',409);
+        if(b.action==='submit'){
+          s.receipts[p.id]={answers:result.answers,score:result.score,max:result.maximum};
+          delete s.drafts[p.id];draft=empty;save(s);
+        }else if(!same){
+          draft={revision:draft.revision+1,answers:result.answers};s.drafts[p.id]=draft;save(s);
+        }
+      }
+      return {id:p.id,data,receipt:s.receipts[p.id]||null,draft};
+    }
     if(!s.receipts[p.id]&&['submit','draft'].includes(b.action)){
       const a=b.answers,max=d.kind==='match'?d.pairs.length:1;
       if(!Array.isArray(a)||a.length!==max||a.some(v=>v!==null&&(!Number.isInteger(v)||(d.kind==='match'?(v<0||v>=max):(v<d.min||v>d.max)))))fail('請核對活動作答。');
@@ -256,13 +296,20 @@
         const f=init.body?.get?.('file');
         return reply(await readMaterial(f));
       }
-      const s=read(),b=typeof init.body==='string'?JSON.parse(init.body):null;
-      if(p===activityPath)return reply(activity(s,url,b));
-      if(p===tutorPath)return reply(tutor(s,url,b));
-      if(p==='/api/eduflow/student/session')return reply({label:'示例學生 01',studioActivities:activityListing(s),studioTutors:tutorList(s)});
-      if(p==='/api/eduflow/student/studio-activity')return reply(studentActivity(s,b));
-      if(p==='/api/eduflow/student/studio-tutors')return reply(studentTutor(s,url,b));
-      fail('找不到這項示例操作。',404);
+      const b=typeof init.body==='string'?JSON.parse(init.body):null;
+      const run=()=>{
+        const s=read();
+        if(p===activityPath)return reply(activity(s,url,b));
+        if(p===tutorPath)return reply(tutor(s,url,b));
+        if(p==='/api/eduflow/student/session')return reply({label:'示例學生 01',studioActivities:activityListing(s),studioTutors:tutorList(s)});
+        if(p==='/api/eduflow/student/studio-activity')return reply(studentActivity(s,b));
+        if(p==='/api/eduflow/student/studio-tutors')return reply(studentTutor(s,url,b));
+        fail('找不到這項示例操作。',404);
+      };
+      // Read and write the current browser data under one lock across teacher and student tabs.
+      if(b && !['read','preview','generate'].includes(b.action) && globalThis.navigator?.locks)
+        return await navigator.locks.request(storage,run);
+      return run();
     }catch(e){return reply({error:e.message||'未能保存，請重新載入。'},e.status||400);}
   }
   window.EduStudioDemo={request};

@@ -11,7 +11,9 @@
   const field=(value='',max=100,multi=false)=>{const n=el(multi?'textarea':'input');n.maxLength=max;n.value=value;n.autocomplete='off';return n;};
   const button=(text,handler,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=handler;return b;};
   const note=(message,error=false)=>{status.textContent=message;status.classList.toggle('error',error);};
-  let session,room=params.get('class')||'',area=location.hash==='#tutors'?'tutors':'activities',busy=false,dirty=false,library,rooms=[];
+  const entry=location.hash.slice(1).split('/');
+  let session,room=params.get('class')||'',area=['tutors','app'].includes(entry[0])?entry[0]:'activities',busy=false,dirty=false,library,rooms=[];
+  let appId=entry[0]==='app'?entry[1]||'new':'new',activeApp=null;
   function busyState(value){busy=value;work.inert=value;$('tabs').inert=value;selector.disabled=value||!rooms.length;}
   async function run(fn){
     if(busy)return;busyState(true);note('');
@@ -22,7 +24,7 @@
   async function api(url,options={}){
     const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...options});
     const data=await response.json().catch(()=>null);
-    if(!response.ok||!data)throw Error(data?.error||'未能讀取資料，請重新登入後重試。');
+    if(!response.ok||!data){const error=Error(data?.error||'未能讀取資料，請重新登入後重試。');error.status=response.status;throw error;}
     return data;
   }
   const post=(url,body)=>api(url,{method:'POST',headers:{'Content-Type':'application/json','X-Eduflow-CSRF':session.csrf_token},
@@ -32,7 +34,7 @@
   const classLabel=id=>rooms.find(r=>r.id===id)?.name||'班級';
   function tabs(){
     for(const b of $('tabs').querySelectorAll('button')){if(b.dataset.area===area)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
-    const url=new URL(location.href);if(room)url.searchParams.set('class',room);url.hash=area;history.replaceState(null,'',url);
+    const url=new URL(location.href);if(room)url.searchParams.set('class',room);url.hash=area==='app'&&appId!=='new'?'app/'+appId:area;history.replaceState(null,'',url);
     $('back').href='schools.html';
   }
   function canLeave(){return !dirty||confirm('尚有未儲存的更改。捨棄這次修改？');}
@@ -45,13 +47,19 @@
   function empty(txt){return el('p',txt,'empty');}
   function row(name,hint,...options){return append('div','line',append('div','',el('strong',name),el('p',hint,'muted')),actions(...options));}
   async function dashboard(){
+    if(area==='app'){
+      const item=appId==='new'?null:await api(activityUrl+'?item='+encode(appId));
+      if(item&&item.data.kind!=='app')throw Error('請在互動活動清單開啟這項活動。');
+      await appEditor(item);return;
+    }
     const data=area==='activities'?await api(activityUrl):await api(tutorsUrl());
     const items=area==='activities'?data.items:data.tutors,box=panel();
     if(area==='activities'){
-      box.append(heading('我的互動活動',button('建立活動',()=>activityEditor(), 'primary')));
-      if(!items.length)box.append(empty('建立第一個配對練習或方程天平，試玩後即可派給班級。'));
-      for(const item of items)box.append(row(item.title,(item.kind==='match'?'配對練習':'方程天平')+' · 第 '+item.revision+' 版',
-        button('編輯與派發',act(async()=>activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
+      box.append(heading('我的互動活動',actions(button('按描述製作應用',act(()=>openApp('new')),'primary'),button('建立活動',()=>activityEditor()))));
+      if(!items.length)box.append(empty('在這裏重開已儲存的應用，或建立配對練習和方程天平。'));
+      const kinds={app:'互動應用',match:'配對練習',balance:'方程天平'};
+      for(const item of items)box.append(row(item.title,kinds[item.kind]+' · 第 '+item.revision+' 版',
+        button('編輯與派發',act(async()=>item.kind==='app'?openApp(item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
     }else{
       library=items;
       box.append(heading('我的課堂導師',button('建立導師',()=>tutorEditor(), 'primary')));
@@ -59,7 +67,11 @@
       for(const t of items)box.append(row(t.title,'草稿第 '+t.revision+' 版'+(t.pinnedRevision?' · 本班使用第 '+t.pinnedRevision+' 版':''),
         button('編輯與試問',()=>tutorEditor(t))));
     }
-    dirty=false;work.replaceChildren(box);tabs();
+    activeApp=null;dirty=false;work.replaceChildren(box);tabs();
+  }
+  async function openApp(id){
+    const item=id==='new'?null:await api(activityUrl+'?item='+encode(id));
+    await appEditor(item);
   }
   const activityDefaults=()=>({kind:'match',title:'',instructions:'',pairs:[{left:'',right:''},{left:'',right:''}],a:2,b:3,min:-5,max:5,target:9});
   function activityError(d){
@@ -73,12 +85,56 @@
     }
     return '';
   }
+  function classDelivery(id,initialPins,version,hasEdits){
+    const side=panel();let pins=initialPins,pinRequest=uuid(),pinScope='';
+    async function refreshPins(){const latest=await api(activityUrl+'?item='+encode(id));pins=latest.pins;drawSide();}
+    function drawSide(){
+      const rev=version(),scope=room+'/'+rev;
+      if(scope!==pinScope){pinRequest=uuid();pinScope=scope;}
+      side.replaceChildren(el('h2','班級派發'));
+      const active=pins.find(p=>p.active&&p.room===room);
+      side.append(el('p',room?classLabel(room)+' · '+(active?'學生使用第 '+active.revision+' 版':'尚未派發'):'先建立班級，便可派發已儲存的活動。','note'));
+      if(room&&rev&&active?.revision!==rev){
+        const pin=button(active?'派發新版本':'派給本班',act(async()=>{
+          if(hasEdits())throw Error('請先儲存修改，再派發此版本。');
+          await post(activityUrl,{action:'pin',id,revision:rev,room,requestId:pinRequest});
+          pinRequest=uuid();await refreshPins();note('已派給'+classLabel(room)+'，學生可從固定入口開啟。');
+        }),'primary');side.append(pin);
+      }
+      if(active)side.append(button('從本班撤下',act(async()=>{
+        await post(activityUrl,{action:'unpin',pin:active.id});pinRequest=uuid();await refreshPins();note('已從本班撤下，已交記錄仍可查閱。');
+      }),'quiet'));
+      for(const pin of pins){
+        const result=el('div'),b=button(classLabel(pin.room)+' · 第 '+pin.revision+' 版'+(pin.active?'':'（已撤下）'),act(async()=>{
+          const report=await api(activityUrl+'?pin='+encode(pin.id)),table=el('table');
+          const tr=el('tr');for(const col of ['學生','完成情況'])tr.append(el('th',col));
+          const head=el('thead');head.append(tr);table.append(head);const body=el('tbody');
+          const submission=el('section',undefined,'submission-preview');
+          for(const student of report.students){
+            const text=!student.submitted?'未提交':student.max===0?'已提交探索紀錄':student.score+' / '+student.max+' 分';
+            const cell=el('td',text);
+            if(student.submitted&&student.answers&&report.data?.kind==='app'){
+              cell.append(button('查看紀錄',()=>{
+                const holder=el('div');
+                submission.replaceChildren(el('h3',student.label+'的提交紀錄'),holder);
+                EduStudioApp.mount(holder,report.data,student.answers,()=>{},true);
+              },'quiet'));
+            }
+            body.append(append('tr','',el('td',student.label),cell));
+          }
+          table.append(body);result.replaceChildren(table,submission);note('已讀取完成情況。');
+        }));if(pin===pins[0])side.append(el('h3','各班完成情況','space'));side.append(b,result);
+      }
+    }
+    drawSide();
+    return {side,refresh:refreshPins,redraw:drawSide};
+  }
   function activityEditor(item=null){
     let draftId=item?.id||uuid(),rev=item?.revision||0,pins=item?.pins||[],d={...activityDefaults(),...item?.data};
-    let pinRequest=uuid();const kind=el('select');
+    const delivery=classDelivery(draftId,pins,()=>rev,()=>dirty),kind=el('select');
     kind.add(new Option('配對練習','match'));kind.add(new Option('方程天平','balance'));kind.value=d.kind;
     const name=field(d.title,100),instructions=field(d.instructions,600,true);
-    const config=el('div'),brief=field('',1200,true),ai=el('details'),side=panel(),preview=el('div'),editor=panel();
+    const config=el('div'),brief=field('',1200,true),ai=el('details'),side=delivery.side,preview=el('div'),editor=panel();
     const save=button('儲存活動',act(saveDraft),'primary'),tryout=button('試玩目前草稿',()=>{try{showPreview(data());note('');}catch(e){note(e.message,true);}});
     function setConfig(){
       config.replaceChildren();
@@ -116,35 +172,10 @@
     }
     async function saveDraft(){
       const r=await post(activityUrl,{action:'save',id:draftId,revision:rev,data:data()});
-      rev=r.revision;dirty=false;pinRequest=uuid();await refreshPins();note('活動已儲存為第 '+rev+' 版。');
-    }
-    async function refreshPins(){const latest=await api(activityUrl+'?item='+encode(draftId));pins=latest.pins;drawSide();}
-    function drawSide(){
-      side.replaceChildren(el('h2','班級派發'));
-      const active=pins.find(p=>p.active&&p.room===room);
-      side.append(el('p',room?classLabel(room)+' · '+(active?'學生使用第 '+active.revision+' 版':'尚未派發'):'先建立班級，便可派發已儲存的活動。','note'));
-      if(room&&rev&&active?.revision!==rev){
-        const pin=button(active?'派發新版本':'派給本班',act(async()=>{
-          if(dirty)throw Error('請先儲存修改，再派發此版本。');
-          await post(activityUrl,{action:'pin',id:draftId,revision:rev,room,requestId:pinRequest});
-          pinRequest=uuid();await refreshPins();note('已派給'+classLabel(room)+'，學生可從固定入口開啟。');
-        }),'primary');side.append(pin);
-      }
-      if(active)side.append(button('從本班撤下',act(async()=>{
-        await post(activityUrl,{action:'unpin',pin:active.id});pinRequest=uuid();await refreshPins();note('已從本班撤下，已交記錄仍可查閱。');
-      }),'quiet'));
-      for(const pin of pins){
-        const result=el('div'),b=button(classLabel(pin.room)+' · 第 '+pin.revision+' 版'+(pin.active?'':'（已撤下）'),act(async()=>{
-          const report=await api(activityUrl+'?pin='+encode(pin.id)),table=el('table');
-          const tr=el('tr');for(const col of ['學生','完成情況'])tr.append(el('th',col));
-          const head=el('thead');head.append(tr);table.append(head);const body=el('tbody');
-          for(const s of report.students){body.append(append('tr','',el('td',s.label),el('td',s.submitted?s.score+' / '+s.max+' 分':'未提交')));}
-          table.append(body);result.replaceChildren(table);note('已讀取完成情況。');
-        }));if(pin===pins[0])side.append(el('h3','各班完成情況','space'));side.append(b,result);
-      }
+      rev=r.revision;dirty=false;await delivery.refresh();note('活動已儲存為第 '+rev+' 版。');
     }
     kind.onchange=()=>{capture();setConfig();preview.replaceChildren();dirty=true;};
-    setConfig();drawSide();
+    setConfig();
     async function generateDraft(){
       if(!brief.value.trim())throw Error('請描述教學目標和活動內容。');
       note('正在擬定活動…');const res=await post(activityUrl,{action:'generate',kind:kind.value,brief:brief.value.trim()});
@@ -166,6 +197,183 @@
     const previewBox=panel(el('h2','學生試玩畫面'),preview);preview.append(empty('填好內容後，按「試玩目前草稿」。'));
     listenDirty(config);[name,instructions].forEach(n=>n.oninput=()=>{dirty=true;});
     const left=el('div');left.append(editor,previewBox);work.replaceChildren(append('div','split',left,side));dirty=false;
+  }
+  async function appEditor(item){
+    const engine=window.EduStudioApp;
+    if(!engine)throw Error('應用編輯器未能載入，請重新整理頁面。');
+    const id=item?.id||uuid();
+    let key=item?.id||'new',rev=item?.revision||0,publishedDraft=item?.data||null;
+    const loadWork=()=>api(activityUrl+'?work='+encode(key));
+    const {draft:working}=await loadWork();
+    let spec=working.base||publishedDraft,workRevision=working.revision;
+    let paused=Boolean((working.base||working.brief)&&working.sourceRevision!==rev);
+    let flight=null,timer=0,generating=false;
+    const undo=[];
+    const editor=panel(),preview=panel(),examples=panel(),frame=el('div',undefined,'app-builder');
+    const brief=field(working.brief,1200,true),canvas=el('div'),title=el('h2');
+    const info=el('p','','app-work-status'),recovery=actions();
+    info.setAttribute('role','status');info.setAttribute('aria-live','polite');
+    const holder=el('div',undefined,'app-canvas-body');
+    const signature=o=>JSON.stringify(o);
+    const changed=()=>signature(spec)!==signature(publishedDraft);
+    const delivery=classDelivery(id,item?.pins||[],()=>rev,()=>changed());
+    const snapshot=()=>({brief:brief.value,base:changed()?spec:null});
+    let stored=signature({brief:working.brief,base:working.base});
+    const workState=(message,error=false)=>{info.textContent=message;info.classList.toggle('error',error);};
+    const workData=body=>post(activityUrl,{action:'work',id:key,revision:workRevision,sourceRevision:rev,...body});
+
+    function redrawControls(){
+      generate.textContent=spec?'套用修改':'產生應用';
+      generate.disabled=paused||generating;revert.hidden=!undo.length;revert.disabled=paused||generating;
+      restart.hidden=key!=='new'||!spec;restart.disabled=paused||generating;
+      save.hidden=!spec;save.disabled=paused||generating||!changed();
+      promptLabel.firstChild.textContent=spec?'想怎樣修改這個應用？':'想讓學生操作甚麼？';
+      brief.placeholder=spec?'例如：加上面積和周長':'例如：拖動三角形的三個頂點，顯示三個內角和內角和。';
+    }
+    function render(){
+      redrawControls();const left=el('div',undefined,'app-builder-tools');
+      left.append(editor);frame.replaceChildren(left);
+      if(!spec){frame.append(examples);return;}
+      title.textContent=spec.title;holder.replaceChildren(el('p',spec.instructions),canvas);
+      engine.mount(canvas,spec,engine.initial(spec),()=>{});
+      frame.append(preview);
+      left.append(delivery.side);delivery.redraw();
+    }
+    function refreshRecovery(){
+      recovery.replaceChildren();recovery.hidden=!paused;
+      if(!paused)return;
+      const reload=button('讀取最新草稿',act(async()=>{
+        if(!confirm('以活動庫及最新工作草稿取代畫面上的內容？'))return;
+        await openApp(key);
+      }));
+      recovery.append(reload);
+    }
+    async function flush(){
+      clearTimeout(timer);
+      if(paused)throw Error('請先處理工作草稿的版本。');
+      if(flight)return flight;
+      flight=(async()=>{
+        while(signature(snapshot())!==stored){
+          const current=snapshot();
+          try{
+            const result=await workData(current);
+            workRevision=result.draft.revision;stored=signature(current);
+          }catch(error){
+            if(error.status===409){paused=true;refreshRecovery();redrawControls();}
+            workState(error.message,true);dirty=true;throw error;
+          }
+        }
+        dirty=false;
+      })();
+      try{await flight;}finally{flight=null;}
+    }
+    function schedule(){
+      dirty=true;clearTimeout(timer);workState('正在保存工作草稿…');
+      timer=setTimeout(()=>flush().then(()=>{
+        if(work.contains(editor))workState(workSavedLabel());
+      }).catch(()=>{}),400);
+    }
+    function workSavedLabel(){
+      return window.EduStudioDemo?'工作草稿已保存在這個瀏覽器。':'工作草稿已保存在教師帳戶。';
+    }
+    async function generateApp(){
+      const submittedText=brief.value,request=submittedText.trim();
+      if(!request){brief.focus();throw Error(spec?'請輸入要修改的部分。':'請描述學生要操作的內容，或選擇一個例子。');}
+      generating=true;redrawControls();work.inert=false;
+      examples.inert=true;delivery.side.inert=true;preview.inert=true;
+      try{
+        await flush();workState(spec?'正在修改應用…':'正在建立應用…');
+        const res=await post(activityUrl,{action:'generate',kind:'app',brief:request,...(spec?{base:spec}:{})});
+        const next=engine.validate(res.data),editing=brief===document.activeElement;
+        const caret=editing?[brief.selectionStart,brief.selectionEnd]:null;
+        undo.push({spec,brief:request});if(undo.length>8)undo.shift();
+        spec=next;if(brief.value===submittedText)brief.value='';
+        dirty=true;render();
+        if(editing){brief.focus({preventScroll:true});brief.setSelectionRange(...caret);}
+        await flush();workState(workSavedLabel());
+        if(!editing&&matchMedia('(max-width: 49rem)').matches)preview.scrollIntoView({block:'start'});
+      }catch(error){workState(error.message,true);throw error;}
+      finally{
+        generating=false;examples.inert=false;delivery.side.inert=false;preview.inert=false;redrawControls();
+      }
+    }
+    async function saveApp(){
+      if(!spec)throw Error('請先產生並試玩應用。');
+      await flush();
+      const newWorkRevision=workRevision;
+      const r=await post(activityUrl,{action:'save',id,revision:rev,data:spec});
+      rev=r.revision;publishedDraft=spec;undo.length=0;
+      // Transfer a new working document to its permanent library address.
+      const previousKey=key;
+      if(previousKey==='new'){
+        key=id;appId=id;tabs();
+        workRevision=0;stored=signature({brief:'',base:null});
+      }
+      try{
+        await flush();
+        if(previousKey==='new'){
+          try{await post(activityUrl,{action:'work',id:'new',revision:newWorkRevision,sourceRevision:0,brief:'',base:null});}
+          catch(error){if(error.status!==409)throw error;}
+        }
+        workState('第 '+rev+' 版已存入互動活動，可派給本班。');
+      }finally{redrawControls();await delivery.refresh();}
+    }
+    const generate=button('產生應用',act(generateApp),'primary');
+    const revert=button('復原上次修改',act(async()=>{
+      await flush();const previous=undo.pop();if(!previous)return;
+      spec=previous.spec;brief.value=previous.brief;dirty=true;render();await flush();workState(workSavedLabel());
+    }),'quiet');
+    const restart=button('重新開始',act(async()=>{
+      if(!confirm('清空目前的工作草稿，重新製作應用？'))return;
+      await flush();undo.push({spec,brief:brief.value});
+      spec=null;brief.value='';dirty=true;render();await flush();workState('可輸入新的描述或選擇例子。');
+    }),'quiet');
+    const save=button('儲存應用',act(saveApp));
+    const promptLabel=label('想讓學生操作甚麼？',brief);
+    brief.rows=4;brief.oninput=schedule;
+    const tips=el('details'),hintText=window.EduStudioDemo
+      ?'展示版以本機規則製作幾何、計算和分支故事。可試「加上面積和周長」、「把目標改為 48」、「將名稱改為『我的實驗』」或「加一個捐贈結局」。'
+      :'可組合可拖動的圖形、滑桿、計算結果、數值挑戰或分支故事。修改時可指定希望保留的部分。';
+    tips.append(el('summary','可用的操作和修改例子'),el('p',hintText,'muted'));
+    if(window.EduStudioDemo){
+      const formats=[
+        ['自訂計算','名稱：車費估算\n滑桿 距離(d) 1 至 30\n結果 車費 = 27 + d * 2'],
+        ['自訂故事','名稱：校園尋寶\n場景 start：圖書館門旁有一張謎語卡，你想去哪裏找線索？\n選項 打開圖鑑 → library\n選項 請教園丁 → garden\n場景 library：你從書中的葉形找到了校園的大樹。\n場景 garden：園丁帶你發現了花圃中的寶盒。']
+      ];
+      for(const [name,template] of formats){
+        const fill=button('填入'+name+'格式',()=>{
+          if(brief.value.trim()&&!confirm('以格式例子取代輸入框的內容？'))return;
+          brief.value=template;schedule();brief.focus();
+        },'quiet');
+        tips.append(el('pre',template,'formula-example'),fill);
+      }
+    }
+    const h=el('h2','製作互動應用');
+    editor.append(h,promptLabel,actions(generate,revert,restart),tips,info,recovery);
+    if(window.EduStudioDemo)editor.append(el('p','展示站使用本機規則；學校版使用已配置的 AI 模型。','muted mode-note'));
+    const previewHead=append('div','block-head',title,save);
+    preview.append(previewHead,holder);
+    examples.append(el('h2','選一個例子開始'));
+    for(const [name,description] of [
+      ['三角形內角','拖動三角形的三個頂點，顯示三個內角和內角和。'],
+      ['折扣計算器','製作折扣計算器，調整原價和折扣百分比。'],
+      ['長方形面積挑戰','製作長方形面積挑戰，拖動長和闊令面積等於 36。'],
+      ['班際義賣分支故事','班際義賣，學生選擇如何處理剩餘食物的分支遊戲。']
+    ]){
+      const choose=button(name,()=>{brief.value=description;schedule();brief.focus();},'app-example');
+      examples.append(choose);
+    }
+    area='app';appId=key;render();refreshRecovery();tabs();work.replaceChildren(frame);dirty=false;
+    activeApp={flush,roomChange:()=>{tabs();delivery.redraw();}};
+    if(paused){
+      workState('活動庫已有較新版本。可查看目前草稿，再選擇要沿用的內容。',true);
+      recovery.replaceChildren(button('沿用這份工作草稿',act(async()=>{
+        paused=false;stored='';refreshRecovery();redrawControls();await flush();workState(workSavedLabel());
+      })),button('使用活動庫版本',act(async()=>{
+        spec=publishedDraft;brief.value='';stored='';paused=false;refreshRecovery();render();await flush();workState('已讀取活動庫版本。');
+      })));
+    }else if(working.base||working.brief)workState('已讀取上次的工作草稿。');
+    else if(item)workState('正在編輯第 '+rev+' 版。');
   }
   function tutorEditor(item=null){
     let id=item?.id||uuid(),rev=item?.revision||0,pinned=item?.pinnedRevision??null,
@@ -220,11 +428,18 @@
   }
   $('tabs').onclick=e=>{
     const next=e.target.closest('[data-area]')?.dataset.area;
-    if(!next||!canLeave())return;
-    run(async()=>{const previous=area;area=next;try{await dashboard();}catch(err){area=previous;throw err;}});
+    if(!next||(!activeApp&&!canLeave()))return;
+    run(async()=>{
+      if(activeApp&&!dirty&&next==='app'&&appId==='new')return;
+      if(activeApp&&dirty)await activeApp.flush();
+      const previous=area,previousId=appId;area=next;if(next==='app')appId='new';
+      try{await dashboard();}catch(err){area=previous;appId=previousId;throw err;}
+    });
   };
   selector.onchange=()=>{
-    const next=selector.value,previous=room;if(!canLeave()){selector.value=room;return;}
+    const next=selector.value,previous=room;
+    if(activeApp){room=next;activeApp.roomChange();return;}
+    if(!canLeave()){selector.value=room;return;}
     run(async()=>{room=next;try{await dashboard();}catch(err){selector.value=room=previous;throw err;}});
   };
   await run(async()=>{
