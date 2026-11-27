@@ -148,6 +148,23 @@
   function scienceBreakdown(report){
     const stats=EduScienceInquiry.classSummary(report.data,report.students);
     const block=el('section',undefined,'science-breakdown');block.append(el('h3','班級證據題分析'));
+    const raised=report.students.filter(p=>p.discussions?.length);
+    if(raised.length){
+      const byTopic=new Map(),categories={mean:'平均值',read:'讀取數據',spread:'離散程度',repeat:'重複量度',control:'公平測試',
+        cause:'因果推論',trend:'數據趨勢',overlap:'範圍重疊',outlier:'異常讀數'};
+      for(const pupil of raised){
+        const topics=new Set(pupil.discussions.map(t=>categories[t.reply?.intent]).filter(Boolean));
+        for(const topic of topics)byTopic.set(topic,(byTopic.get(topic)||0)+1);
+      }
+      const summary=el('div',undefined,'science-question-counts');
+      summary.append(el('h4','本班舉手情況'),el('p',raised.length+' 位學生提問，共 '+raised.reduce((n,p)=>n+p.discussions.length,0)+' 次。'));
+      if(byTopic.size){
+        const list=el('ul');
+        for(const [topic,count] of [...byTopic].sort((a,b)=>b[1]-a[1]))list.append(el('li',topic+' · '+count+' 人'));
+        summary.append(list);
+      }
+      block.append(summary);
+    }
     if(!stats.submitted){block.append(el('p','收到作答後會列出每題的選項分布。'));return block;}
     if(stats.priority){
       const item=stats.priority;
@@ -198,6 +215,18 @@
             const science=report.data?.kind==='scienceInquiryLab',inquiry=science||report.data?.kind==='priceInvestigation';
             if(inquiry&&student.submitted)cell.append(student.review?' · 已回覆建議':science&&!student.answers?.reason?' · 已交實驗紀錄':' · 建議待覆核');
             const hasCanvas=student.submitted&&student.answers&&(inquiry||['app','percentLesson'].includes(report.data?.kind));
+            if(science&&student.discussions?.length){
+              cell.append(button('查看舉手紀錄（'+student.discussions.length+'）',()=>{
+                const title=el('h3',student.label+'的舉手紀錄');title.tabIndex=-1;
+                const onReply=async(turn,comment)=>{
+                  const result=await post(activityUrl,{action:'replyScience',pin:pin.id,student:student.id,turnId:turn.id,
+                    comment,revision:turn.teacherReply?.revision||0});
+                  turn.teacherReply=result.teacherReply;
+                  return result;
+                };
+                submission.replaceChildren(title,EduScienceHandUI.transcript(student.discussions,{onReply}));title.focus();
+              },'quiet'));
+            }
             if(hasCanvas||history.length){
               cell.append(button(hasCanvas?'查看紀錄':'查看提示',()=>{
                 submission.replaceChildren(el('h3',student.label+(hasCanvas?'的提交紀錄':'的提示紀錄')));

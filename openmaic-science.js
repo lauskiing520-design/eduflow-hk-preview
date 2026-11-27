@@ -21,12 +21,23 @@
   // Only checked numerical readings enter the document. Its port carries view controls.
   function setupLab(rows,sourceName,focus,firstView,hostOrigin,token){
     const $=id=>document.getElementById(id),format=value=>value.toFixed(2);
-    let view={...firstView},start=0;
+    let view={...firstView},start=0,highlight=null,highlightTrial=null;
     const scale=rows.flatMap(r=>r.times),lo=Math.min(...scale),hi=Math.max(...scale);
     const gap=Math.max((hi-lo)*.12,.02),min=Math.max(0,lo-gap),max=hi+gap;
     const coordinate=value=>(4+92*(value-min)/(max-min))+'%';
     const port=new MessageChannel();
-    port.port1.onmessage=event=>{if(event.data?.view){view=event.data.view;draw();}};
+    port.port1.onmessage=event=>{
+      const {view:next,citation}=event.data||{};
+      if(next){view=next;draw();}
+      if(!citation)return;
+      const index=rows.findIndex(row=>row.length===citation.length);
+      if(index<0||![1,2,3].includes(citation.round)||(citation.trial!==undefined&&![1,2,3].includes(citation.trial)))return;
+      start=Math.floor(index/3)*3;highlight=citation.length;highlightTrial=citation.trial||null;
+      view={...view,round:Math.max(citation.round,highlightTrial||0)};draw();
+      const line=$('observations').querySelector('[data-cited]');
+      line?.focus({preventScroll:true});
+      port.port1.postMessage({view,shown:citation.id});
+    };
     window.parent.postMessage({channel:'eduflow-science-v1',nonce:token,type:'lab'},hostOrigin,[port.port2]);
     $('provenance').textContent=sourceName;
     $('focusCopy').textContent=focus;
@@ -39,6 +50,9 @@
       for(const row of rows.slice(start,start+3)){
         const times=row.times.slice(0,count);
         const line=tag('div',null,'observation'),rowhead=tag('div',null,'rowhead');
+        const trial=row.length===highlight&&highlightTrial<=count?highlightTrial:null;
+        const exact=trial?'第 '+trial+' 次 · '+format(row.times[trial-1])+' 秒':'';
+        if(row.length===highlight){line.dataset.cited=String(row.length);line.tabIndex=-1;line.setAttribute('aria-label','提問引用的 '+row.length+' 厘米原始讀數'+(exact?'，'+exact:''));}
         rowhead.append(tag('b',row.length+' cm'),tag('span',times.map(format).join('　')+' 秒'));
         line.append(rowhead);
         const graph=tag('div',null,'track');
@@ -48,9 +62,12 @@
         range.style.left=coordinate(left);range.style.width=(92*(right-left)/(max-min))+'%';
         graph.append(range);
         times.forEach((n,i)=>{
-          const mark=tag('i',null,'mark mark'+i);mark.style.left=coordinate(n);graph.append(mark);
+          const mark=tag('i',null,'mark mark'+i);mark.style.left=coordinate(n);
+          if(i+1===trial)mark.dataset.citedTrial=String(trial);
+          graph.append(mark);
         });
         line.append(graph);
+        if(exact)line.append(tag('div',exact,'trial-focus'));
         if(view.showMeans){
           const cents=times.reduce((sum,n)=>sum+Math.round(100*n),0);
           const mean=Math.round(cents/count)/100;
@@ -73,8 +90,8 @@
     function change(next){view=next;draw();port.port1.postMessage({view});}
     document.querySelectorAll('[data-round]').forEach(b=>{b.onclick=()=>change({...view,round:Number(b.dataset.round)});});
     $('average').onclick=()=>change({...view,showMeans:!view.showMeans});
-    $('prev').onclick=()=>{start=Math.max(0,start-3);draw();};
-    $('next').onclick=()=>{if(start+3<rows.length)start+=3;draw();};
+    $('prev').onclick=()=>{highlight=null;start=Math.max(0,start-3);draw();port.port1.postMessage({view,clearFocus:true});};
+    $('next').onclick=()=>{highlight=null;if(start+3<rows.length)start+=3;draw();port.port1.postMessage({view,clearFocus:true});};
     draw();
   }
   function labHtml(course,view,token){
@@ -90,6 +107,9 @@
     [aria-pressed=true]{background:#164d51;color:white;border-color:#164d51}button:focus-visible{outline:4px solid #b84915;outline-offset:2px}
     .observation{margin:.7vh 0;padding-bottom:.7vh;border-bottom:1px solid #d3dbd4}.rowhead{display:flex;justify-content:space-between;align-items:baseline;gap:1vw}
     .rowhead b{color:#164d51;font-size:1.14em}.rowhead span,.avg{font-variant-numeric:tabular-nums}
+    .observation[data-cited]{background:#fff3cb;outline:3px solid #97651d;outline-offset:2px}
+    .track .mark[data-cited-trial]{z-index:2;outline:3px solid #74400f;box-shadow:0 0 0 .19em #fff;background:#74400f}
+    .trial-focus{font-weight:700;font-size:.91em;color:#65380f}
     .track{position:relative;height:1.32em;margin:.28em 0;background:repeating-linear-gradient(to right,#dee4db 0 1px,transparent 1px 10%);border-bottom:2px solid #a3b1a5}
     .mark,.range,.mean{position:absolute;top:57%}.mark{width:.52em;height:.52em;border-radius:50%;background:#176964;transform:translate(-50%,-50%);outline:2px solid #faf8ee}
     .mark1{top:42%;background:#4f7d45}.mark2{top:69%;background:#284e74}.mean{width:.46em;height:.46em;top:12%;background:#a05222;transform:translate(-50%,-50%)rotate(45deg)}
@@ -120,18 +140,38 @@
     const choices={...config.choices},initialView=engine.initial().view;
     const validView=v=>v&&[1,2,3].includes(v.round)&&typeof v.showMeans==='boolean';
     let view=validView(config.view)?config.view:initialView;
-    function post(type,payload){if(sandboxed&&!readonly)parent.postMessage({channel,nonce,type,...payload},origin);}
-    let port;
+    function post(type,payload){if(sandboxed)parent.postMessage({channel,nonce,type,...payload},origin);}
+    let port,portFrame,pending,jumpScene=false;
+    function reveal(){
+      if(!pending)return;
+      const frame=root.querySelector('iframe[sandbox]');
+      if(frame?.contentWindow&&frame.contentWindow===portFrame){port.postMessage({citation:pending});return;}
+      const start=root.querySelector('[data-testid="start-playback"]');
+      if(start&&!start.disabled){start.click();return;}
+      const previous=root.querySelector('[data-testid="previous"]');
+      if(!jumpScene&&previous&&!previous.disabled&&root.querySelector('[data-testid="quiz"]')){jumpScene=true;previous.click();}
+    }
     window.addEventListener('message',event=>{
+      if(event.source===parent&&event.origin===origin&&event.data?.channel===channel&&event.data.nonce===nonce&&
+         event.data.type==='show-evidence'&&sandboxed){
+        const {length,round,trial,id}=event.data;
+        if(course.rows.some(row=>row.length===length)&&[1,2,3].includes(round)&&
+            (trial===undefined||[1,2,3].includes(trial))&&typeof id==='string'&&id.length<=40){
+          pending={length,round,id,...(trial?{trial}:{})};jumpScene=false;reveal();
+        }
+        return;
+      }
       const frame=root.querySelector('iframe[sandbox]');
       if(!frame||event.source!==frame.contentWindow||event.origin!=='null'||event.data?.channel!==channel||
         event.data.nonce!==key||event.data.type!=='lab'||event.ports.length!==1)return;
       port?.close();port=event.ports[0];port.postMessage({view});
-      const source=frame.contentWindow;
+      const source=frame.contentWindow;portFrame=source;
+      if(pending)port.postMessage({citation:pending});
       port.onmessage=e=>{
         if(root.querySelector('iframe[sandbox]')?.contentWindow!==source||!validView(e.data?.view))return;
         view={round:e.data.view.round,showMeans:e.data.view.showMeans};
-        post('view',{view});
+        if(pending&&e.data.shown===pending.id){post('evidence-shown',{id:pending.id});pending=null;}
+        post('view',{view,clearFocus:e.data.clearFocus===true});
       };
     });
     const stageId='eduflow-paper-rotor';
@@ -158,7 +198,7 @@
         if(readonly)quiz.querySelector('[data-testid="quiz-submit"]')?.click();
       }finally{restoring=false;}
     }
-    new MutationObserver(restore).observe(root,{childList:true,subtree:true});
+    new MutationObserver(()=>{restore();if(pending)reveal();}).observe(root,{childList:true,subtree:true});
     root.addEventListener('change',e=>{
       const x=e.target;
       if(!restoring&&!readonly&&x.matches?.('[data-testid="quiz"] input[type=radio]')&&ids.get(x.name)?.has(x.value)){

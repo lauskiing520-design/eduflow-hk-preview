@@ -147,6 +147,7 @@
         const interactive=engineKinds.includes(p.data.kind);
         return {title:p.data.title,className:room(p.room).name,...(interactive?{data:clone(p.data)}:{}),
           students:[{label:'示例學生 01',submitted:!!r,score:r?.score??null,max:r?.max??maximum,
+            ...(p.data.kind==='scienceInquiryLab'?{id:'demo',discussions:discussionHistory(s,p.id)}:{}),
             ...(['app','priceInvestigation'].includes(p.data.kind)?{hints:studentHints(s,p.id)}:{}),
             ...(essayKinds.includes(p.data.kind)&&r?{id:'demo',review:r.review||null}:{}),
             ...(interactive&&r?{answers:r.answers}:{})}]};
@@ -172,6 +173,18 @@
       if(b.revision!==old.revision)fail('另一分頁已更新草稿，請重新讀取。',409);
       s.work??={};s.work[key]={revision:old.revision+1,...next};save(s);
       return {draft:s.work[key]};
+    }
+    if(b.action==='replyScience'){
+      const p=s.pins[b.pin],records=s.scienceTalks?.[b.pin]||[];
+      const turn=records.find(r=>r.turn.id===b.turnId)?.turn;
+      if(p?.data.kind!=='scienceInquiryLab'||!turn||b.student!=='demo')fail('找不到這條舉手紀錄。',404);
+      if(typeof b.comment!=='string'||b.comment.length>600||!b.comment.trim())fail('請輸入 1 至 600 字的回覆。');
+      const comment=b.comment.trim(),previous=turn.teacherReply;
+      if(previous?.comment!==comment){
+        if(b.revision!==(previous?.revision||0))fail('這條回覆已在另一分頁更新，請重新讀取。',409);
+        turn.teacherReply={comment,revision:b.revision+1};save(s);
+      }
+      return {teacherReply:turn.teacherReply};
     }
     if(b.action==='review'){
       const p=s.pins[b.pin],r=p&&s.receipts[p.id],comment=clean(b.comment,600);
@@ -215,6 +228,33 @@
   function studentHints(s,pin){
     return (s.appHints?.[pin]||[]).map(({text,evidence,source})=>({text,evidence,source}));
   }
+  function discussionHistory(s,pin){
+    return (s.scienceTalks?.[pin]||[]).map(record=>record.turn);
+  }
+  function askScience(s,p,b){
+    if(!ident(b.requestId))fail('請重新送出提問。');
+    if(typeof b.question!=='string'||!b.question.trim()||b.question.length>400||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(b.question))fail('請輸入 1 至 400 字的課堂問題。');
+    const question=b.question.trim(),given=b.view??{};
+    if(typeof given!=='object'||Array.isArray(given))fail('請重新讀取實驗畫面。');
+    const view={round:Object.hasOwn(given,'round')?given.round:1,showMeans:Object.hasOwn(given,'showMeans')?given.showMeans:false};
+    if(![1,2,3].includes(view.round)||typeof view.showMeans!=='boolean')fail('請重新讀取實驗畫面。');
+    if(given.length!=null){
+      if(!p.data.rows.some(r=>r.length===given.length))fail('這組翼長不在本次實驗內。');
+      view.length=given.length;
+    }
+    s.scienceTalks??={};
+    const records=s.scienceTalks[p.id]??=[],previous=records.find(r=>r.turn.id===b.requestId);
+    if(previous){
+      if(previous.turn.question!==question||JSON.stringify(previous.view)!==JSON.stringify(view))fail('這個提問已更改，請重新送出。',409);
+      return {turn:previous.turn,discussions:discussionHistory(s,p.id)};
+    }
+    if(records.length>=12)fail('本節已提問 12 次，仍可重看已保存的對話。',429);
+    const submitted=Boolean(s.receipts[p.id]);
+    const context=EduScienceDiscussion.prepare(p.data,{question,view,previous:records.at(-1)?.turn,submitted});
+    const turn={id:b.requestId,question,reply:EduScienceDiscussion.guided(context),source:'guided',submitted};
+    records.push({view,turn});save(s);
+    return {turn,discussions:discussionHistory(s,p.id)};
+  }
   function requestHint(s,p,b){
     if(!ident(b.requestId))fail('請重新開啟提示。');
     if(s.receipts[p.id])fail('這份活動已提交，可重看之前的提示。',409);
@@ -246,6 +286,7 @@
     if(engineKinds.includes(d.kind)){
       const lesson=d.kind==='percentLesson',investigation=d.kind==='priceInvestigation',science=d.kind==='scienceInquiryLab';
       const hasHints=investigation||d.kind==='app';
+      if(b.action==='askScience'&&science)return askScience(s,p,b);
       if(b.action==='hint'&&hasHints)return requestHint(s,p,b);
       if(!['read','draft','submit'].includes(b.action))fail('未支援這個操作。');
       if(b.action!=='read'&&!s.receipts[p.id]){
@@ -263,6 +304,7 @@
       }
       const editors={scienceInquiryLab:'science',priceInvestigation:'investigation',percentLesson:'lesson',app:'app'};
       return {id:p.id,data,receipt:s.receipts[p.id]||null,draft,...(hasHints?{hints:studentHints(s,p.id)}:{}),
+        ...(science?{discussions:discussionHistory(s,p.id)}:{}),
         teacherView:'studio.html?class='+encodeURIComponent(p.room)+'#'+editors[d.kind]+'/'+encodeURIComponent(p.item)};
     }
     if(!s.receipts[p.id]&&['submit','draft'].includes(b.action)){

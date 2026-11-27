@@ -21,7 +21,15 @@
     const cleanView=view=>view&&[1,2,3].includes(view.round)&&typeof view.showMeans==='boolean'
       ?{round:view.round,showMeans:view.showMeans}:null;
     let choices=cleanChoices(answers?.choices),view=cleanView(answers?.view)||initial.view,disposed=false;
-    let received=false; const origin=url.origin;
+    let received=false,pending=null,highlight=null;const origin=url.origin;
+    const command=(type,payload)=>frame.contentWindow.postMessage({channel,nonce,type,...payload},origin);
+    function showEvidence(citation){
+      const length=citation?.length,round=citation?.round,trial=citation?.trial;
+      if(disposed||!course.rows.some(row=>row.length===length)||![1,2,3].includes(round)||
+          (trial!==undefined&&![1,2,3].includes(trial)))return;
+      pending={length,round:Math.max(round,trial||0),...(trial?{trial}:{}),id:scope.crypto.randomUUID()};
+      if(received)command('show-evidence',pending);
+    }
     function receive(event){
       const msg=event.data;
       if(disposed||event.source!==frame.contentWindow||event.origin!==origin||
@@ -29,11 +37,17 @@
       if(msg.type==='ready'){
         frame.contentWindow.postMessage({channel,nonce,type:'start',course,choices,view,readonly,practice},origin);
         received=true;
+        if(pending)command('show-evidence',pending);
+      }else if(msg.type==='evidence-shown'&&pending&&msg.id===pending.id){
+        highlight=pending.length;view={...view,round:pending.round};pending=null;
       }else if(received&&!readonly&&msg.type==='choices'){
         choices=cleanChoices(msg.choices);onChange({choices:{...choices}});
-      }else if(received&&!readonly&&msg.type==='view'){
+      }else if(received&&msg.type==='view'){
         const next=cleanView(msg.view);
-        if(next){view=next;onChange({view:{...next}});}
+        if(next){
+          if(msg.clearFocus===true)highlight=null;
+          view=next;if(!readonly)onChange({view:{...next}});
+        }
       }
     }
     scope.addEventListener('message',receive);
@@ -48,7 +62,7 @@
       disposed=true;observer.disconnect();scope.removeEventListener('message',receive);frame.remove();
     }
     frame.src=url.href;host.replaceChildren(frame);
-    return {destroy};
+    return {destroy,showEvidence,getView:()=>highlight===null?{...view}:{...view,length:highlight}};
   }
   scope.EduScienceClassroom=Object.freeze({mount});
 })(window);

@@ -36,11 +36,11 @@
     }
     box.append(table,el('p','各行共用 '+number(fastest)+' 至 '+number(slowest)+' 秒的橫軸。平均值顯示至小數點後兩位。','si-meta'));return box;
   }
-  function mount(host,{data,answers,readonly=false,onChange=()=>{},practice=false}={}) {
+  function mount(host,{data,answers,readonly=false,onChange=()=>{},practice=false,discussion}={}) {
     const E=root.EduScienceInquiry, spec=E.project(data), questions=E.questions(spec);
     const initial=E.initial(),saved=answers||{};
     let student={...initial,...structuredClone(saved),choices:{...initial.choices,...saved.choices},view:{...initial.view,...saved.view}};
-    let classroom;
+    let classroom,replay,explain,hand,redrawCitations;
     const section=el('section',null,'si-player');
     const playerHost=el('div',null,'si-native'),count=status('si-progress');
     function updateCount(){
@@ -57,6 +57,25 @@
         }
       });
     }
+    if(discussion&&typeof discussion.ask==='function'&&!practice){
+      hand=root.EduScienceHandUI.mount({discussion,data:spec,getView:()=>classroom?.getView()||student.view,
+        showEvidence:citation=>{
+          if(replay)replay.open=true;
+          if(!classroom)start();
+          classroom.showEvidence(citation);playerHost.scrollIntoView({block:'center'});
+        },
+        returnToAnswer:readonly?null:()=>{explain?.focus();},
+        getEvidence:()=>student.evidence||[],
+        toggleEvidence:readonly?null:length=>{
+          if(!spec.rows.some(row=>row.length===length))return;
+          const current=student.evidence||[];
+          if(current.includes(length))student.evidence=current.filter(n=>n!==length);
+          else if(current.length<2)student.evidence=[...current,length];
+          else return;
+          redrawCitations();onChange(structuredClone(student));
+        }
+      });
+    }
     const source=el('p',origin(spec)+' · 翼長以厘米計，下落時間以秒計。','si-meta');
     if(readonly){
       const result=E.grade(spec,student,true);
@@ -70,7 +89,7 @@
         item.append(el('strong',q.question),el('p','作答　'+(choice?.label||'未作答')),mark);
         const why=el('details');why.append(el('summary','查看依據'),el('p',q.analysis));item.append(why);list.append(item);
       }
-      const replay=el('details',null,'si-replay');
+      replay=el('details',null,'si-replay');
       replay.append(el('summary','重看這次的原生課堂'),playerHost);
       replay.ontoggle=()=>{if(replay.open&&!classroom)start();};
       review.append(list,el('h4','給實驗小組的建議'),el('p',student.reason||'未附文字建議。','si-written'));
@@ -80,13 +99,14 @@
         review.append(el('h4','學生引用的原始讀數'),citations);
       }
       review.append(replay);
+      if(hand)section.append(hand.node);
       section.append(review);
     }else{
       const instructions=el('div',null,'si-brief');
       const focus=el('details'),guided=el('summary','老師的探究問題');
       focus.append(guided,el('p',E.guidance(spec)));
       instructions.append(focus,el('span',origin(spec)+' · 5 題','si-meta'));
-      const explain=el('textarea');explain.rows=3;explain.maxLength=600;explain.value=student.reason||'';
+      explain=el('textarea');explain.rows=3;explain.maxLength=600;explain.value=student.reason||'';
       explain.placeholder='例如，指出一項要保持相同的條件，並引用一組讀數說明為甚麼值得重測。';
       explain.oninput=()=>{student.reason=explain.value;onChange(structuredClone(student));};
       const note=el('section',null,'si-reflection');
@@ -104,14 +124,17 @@
           pick.setAttribute('aria-pressed',String(selected));refs.append(pick);
           if(selected)cited.append(el('li',reading(row)));
         }
+        hand?.updateEvidence();
       }
-      student.evidence??=[];showCitations();cite.append(legend,refs,cited);
+      student.evidence??=[];redrawCitations=showCitations;showCitations();cite.append(legend,refs,cited);
       note.append(label('給實驗小組的建議（選填）',explain),cite);
-      updateCount();section.append(instructions,playerHost,count,note);
+      updateCount();section.append(instructions);
+      if(hand)section.append(hand.node);
+      section.append(playerHost,count,note);
     }
     host.replaceChildren(section);
     if(!readonly)start();
-    return {read:()=>structuredClone(student),destroy:()=>{classroom?.destroy();classroom=null;}};
+    return {read:()=>structuredClone(student),destroy:()=>{hand?.destroy();classroom?.destroy();classroom=null;}};
   }
 
   async function open({item,api,post,url,host,run,setDirty,selectKey,deliveryFor}){

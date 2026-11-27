@@ -70,7 +70,15 @@
       },Array.isArray(d.hints)?{
         records:d.hints,local:Boolean(window.EduStudioDemo),
         request:(answers,requestId)=>post('hint',{answers,requestId})
+      }:null,Array.isArray(d.discussions)?{
+        records:d.discussions,local:Boolean(window.EduStudioDemo),
+        ask:(question,requestId,view)=>post('askScience',{question,requestId,view}),
+        refresh:()=>post('read')
       }:null);
+    if(params.get('panel')==='ask'){
+      const panel=box.querySelector('details.science-hand');
+      if(panel){panel.open=true;panel.scrollIntoView({block:'start'});}
+    }
   }
   try{
     if(!token)throw Error('請從老師提供的學生固定入口開啟這項活動或導師。');

@@ -1,0 +1,29 @@
+.studio .science-hand{border-block:1px solid #b3c9c5;background:#f5faf8;margin:.55rem 0 .8rem;color:#183e42}
+.studio .science-hand>summary{cursor:pointer;display:flex;align-items:center;gap:.55rem;padding:.65rem .9rem;list-style:none}
+.studio .science-hand>summary::-webkit-details-marker{display:none}
+.studio .science-hand>summary::before{content:'＋';font-size:1.25rem;color:#116559}
+.studio .science-hand[open]>summary::before{content:'−'}
+.studio .science-hand .hand-count{margin-left:auto;color:#426367;font-size:.93rem}
+.studio .hand-body{padding:0 .95rem .9rem;max-width:54rem}
+.studio .hand-body label{display:block;font-weight:650}
+.studio .hand-body textarea{display:block;width:100%;min-height:4.5rem;font:inherit;margin:.3rem 0}
+.studio .hand-log{list-style:none;padding:0;margin:0}
+.studio .hand-log>li{padding:.65rem 0;border-top:1px solid #cddbd8;overflow-wrap:anywhere}
+.studio .hand-log small{font-size:.92rem;color:#46666a}
+.studio .hand-log p{white-space:pre-wrap;margin:.3rem 0}
+.studio .hand-log .hand-question{font-weight:700;color:#173d48}
+.studio .hand-prompt{color:#285d55}
+.studio .hand-refs{list-style:none;margin:.5rem 0;padding:0}
+.studio .hand-refs li{display:flex;align-items:center;flex-wrap:wrap;gap:.2rem .65rem;padding:.2rem 0;font-variant-numeric:tabular-nums}
+.studio .hand-actions,.studio .hand-starters{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin:.55rem 0}
+.studio .hand-starters[hidden]{display:none}
+.studio .hand-starters button,.studio button.hand-locate,.studio button.hand-back{background:transparent;border:0;border-radius:0;text-decoration:underline;text-underline-offset:.18em;color:#126456;min-height:36px;padding:.15rem .2rem}
+.studio .hand-earlier summary{cursor:pointer;color:#315d64;padding:.4rem 0}
+.studio .hand-teacher:not(:empty){border-left:3px solid #3e786b;background:#edf5ef;padding:.5rem .75rem;margin:.65rem 0}
+.studio .hand-teacher-editor summary{cursor:pointer;font-weight:650;color:#265b50}
+.studio .hand-teacher-editor textarea{display:block;width:100%;min-height:4.5rem;margin:.4rem 0;font:inherit}
+.studio .hand-add{padding:.2rem .5rem;min-height:34px;font-size:.92rem}
+.studio .hand-add[aria-pressed=true]{background:#e4f2e8;color:#145744;border-color:#8faf9f}
+.studio .hand-status{color:#315d64;margin:.3rem 0}
+.studio .hand-status:empty{display:none}
+@media(max-width:35rem){.studio .science-hand>summary{padding:.55rem}.studio .hand-body{padding-inline:.65rem}.studio .science-hand .hand-count{font-size:.88rem}}

@@ -94,7 +94,7 @@ window.EduStudioPlayer=(()=>{
     host.append(title,intro,ask,limit,notice,log);redraw();
     return {host,stateChanged,finish:()=>{finished=true;lastShown=null;currentHint=null;notice.textContent='';redraw();}};
   }
-  function mount(host,data,receipt,submit,draft=null,saveDraft=null,hints=null){
+  function mount(host,data,receipt,submit,draft=null,saveDraft=null,hints=null,discussion=null){
     const form=el('form'),instruction=el('p',data.instructions),fields=el('fieldset'),legend=el('legend','我的作答');
     fields.className='studio-player-fields';fields.append(legend);
     const message=el('p');message.setAttribute('role','status');
@@ -129,7 +129,7 @@ window.EduStudioPlayer=(()=>{
     let read,canvas,help,lesson,updateLessonSubmit=()=>{};
     if(investigation){
       canvas=el('div');fields.append(canvas);
-      lesson=courseUI.mount(canvas,{data,answers:previous||undefined,readonly:Boolean(receipt),
+      lesson=courseUI.mount(canvas,{data,answers:previous||undefined,readonly:Boolean(receipt),discussion,
         onChange:()=>{updateLessonSubmit();help?.stateChanged();scheduleProgress();}});
       read=()=>lesson.read();
       saved=JSON.stringify(read());
@@ -199,7 +199,7 @@ window.EduStudioPlayer=(()=>{
       if(canvas){
         canvas.inert=false;
         if(investigation){
-          lesson.destroy();lesson=courseUI.mount(canvas,{data,answers:r.answers,readonly:true});
+          lesson.destroy();lesson=courseUI.mount(canvas,{data,answers:r.answers,readonly:true,discussion});
           fields.disabled=false;
         }else if(lesson){lesson.destroy();lesson=EduPercentLesson.mount(canvas,data,{answers:r.answers,readonly:true});}
         else EduStudioApp.mount(canvas,data,r.answers,()=>{},true);
