@@ -2,12 +2,14 @@ window.EduStudioPlayer=(()=>{
   'use strict';
   const el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
   function matchPreview(data){
+    if(data.kind==='percentLesson')return EduPercentLesson.project(data);
     if(data.kind!=='match')return {...data};
     // Rotate the choices so reading down the page does not give away the order.
     return {kind:data.kind,title:data.title,instructions:data.instructions,lefts:data.pairs.map(p=>p.left),
       choices:[...data.pairs.slice(1),data.pairs[0]].map(p=>p.right)};
   }
   function scorePreview(data,view,answers){
+    if(data.kind==='percentLesson')return EduPercentLesson.grade(data,answers,true);
     if(data.kind==='app'){
       const outcome=EduStudioApp.answer(data,answers,true);
       return {score:outcome.score,max:outcome.maximum,answers:outcome.answers};
@@ -95,8 +97,12 @@ window.EduStudioPlayer=(()=>{
     fields.className='studio-player-fields';fields.append(legend);
     const message=el('p');message.setAttribute('role','status');
     const previous=receipt?.answers||draft?.answers;
-    let read,canvas,help;
-    if(data.kind==='app'){
+    let read,canvas,help,lesson,updateLessonSubmit=()=>{};
+    if(data.kind==='percentLesson'){
+      canvas=el('div');fields.append(canvas);
+      lesson=EduPercentLesson.mount(canvas,data,{answers:previous||undefined,readonly:Boolean(receipt),onChange:()=>updateLessonSubmit()});
+      read=()=>lesson.read();
+    }else if(data.kind==='app'){
       canvas=el('div');fields.append(canvas);
       let state=previous||EduStudioApp.initial(data);
       read=()=>state;
@@ -132,10 +138,22 @@ window.EduStudioPlayer=(()=>{
     const button=el('button','提交作答');button.type='submit';button.className='primary';
     const save=el('button','保存進度');save.type='button';save.hidden=!saveDraft;
     const bar=el('div');bar.className='actions';bar.append(button,save);
+    if(lesson){
+      updateLessonSubmit=()=>{
+        const answers=read();
+        button.disabled=answers.prediction===null||answers.trialUp===null||answers.exitPrice===null;
+        button.title=button.disabled?'完成預測、試驗和新題後便可提交。':'';
+      };
+      updateLessonSubmit();
+    }
     const report=r=>{
       fields.disabled=true;bar.hidden=true;
       help?.finish();
-      if(canvas){canvas.inert=false;EduStudioApp.mount(canvas,data,r.answers,()=>{},true);}
+      if(canvas){
+        canvas.inert=false;
+        if(lesson){lesson.destroy();lesson=EduPercentLesson.mount(canvas,data,{answers:r.answers,readonly:true});}
+        else EduStudioApp.mount(canvas,data,r.answers,()=>{},true);
+      }
       message.textContent=r.max===0?'已提交探索紀錄。':'已完成，得分 '+r.score+' / '+r.max+'。';
     };
     form.append(instruction);
@@ -151,7 +169,7 @@ window.EduStudioPlayer=(()=>{
       button.disabled=save.disabled=fields.disabled=true;if(canvas)canvas.inert=true;
       try{await saveDraft(answers);message.textContent='進度已保存，可從學生入口繼續。';}
       catch(err){message.textContent=err.message;}
-      finally{button.disabled=save.disabled=fields.disabled=false;if(canvas)canvas.inert=false;}
+      finally{button.disabled=save.disabled=fields.disabled=false;if(canvas)canvas.inert=false;updateLessonSubmit();}
     };
     form.onsubmit=async event=>{
       event.preventDefault();if(button.disabled)return;
@@ -159,7 +177,7 @@ window.EduStudioPlayer=(()=>{
       if(data.kind==='match'&&new Set(answers).size!==answers.length){message.textContent='每個選項只可配對一次，請檢查重複的選項。';return;}
       button.disabled=save.disabled=true;fields.disabled=true;if(canvas)canvas.inert=true;message.textContent='正在提交…';
       try{const r=await submit(answers);report(r);}
-      catch(error){message.textContent=error.message;button.disabled=save.disabled=false;fields.disabled=false;if(canvas)canvas.inert=false;}
+      catch(error){message.textContent=error.message;button.disabled=save.disabled=false;fields.disabled=false;if(canvas)canvas.inert=false;updateLessonSubmit();}
     };
   }
   return {matchPreview,scorePreview,mount,hintHistory};

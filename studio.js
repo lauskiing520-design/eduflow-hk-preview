@@ -12,8 +12,8 @@
   const button=(text,handler,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=handler;return b;};
   const note=(message,error=false)=>{status.textContent=message;status.classList.toggle('error',error);};
   const entry=location.hash.slice(1).split('/');
-  let session,room=params.get('class')||'',area=['tutors','app'].includes(entry[0])?entry[0]:'activities',busy=false,dirty=false,library,rooms=[];
-  let appId=entry[0]==='app'?entry[1]||'new':'new',activeApp=null;
+  let session,room=params.get('class')||'',area=['tutors','app','lesson'].includes(entry[0])?entry[0]:'activities',busy=false,dirty=false,library,rooms=[];
+  let appId=['app','lesson'].includes(entry[0])?entry[1]||'new':'new',activeApp=null;
   function busyState(value){busy=value;work.inert=value;$('tabs').inert=value;selector.disabled=value||!rooms.length;}
   async function run(fn){
     if(busy)return;busyState(true);note('');
@@ -34,7 +34,7 @@
   const classLabel=id=>rooms.find(r=>r.id===id)?.name||'班級';
   function tabs(){
     for(const b of $('tabs').querySelectorAll('button')){if(b.dataset.area===area)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
-    const url=new URL(location.href);if(room)url.searchParams.set('class',room);url.hash=area==='app'&&appId!=='new'?'app/'+appId:area;history.replaceState(null,'',url);
+    const url=new URL(location.href);if(room)url.searchParams.set('class',room);url.hash=['app','lesson'].includes(area)&&appId!=='new'?area+'/'+appId:area;history.replaceState(null,'',url);
     $('back').href='schools.html';
   }
   function canLeave(){return !dirty||confirm('尚有未儲存的更改。捨棄這次修改？');}
@@ -47,6 +47,7 @@
   function empty(txt){return el('p',txt,'empty');}
   function row(name,hint,...options){return append('div','line',append('div','',el('strong',name),el('p',hint,'muted')),actions(...options));}
   async function dashboard(){
+    if(area==='lesson'){await openLesson(appId);return;}
     if(area==='app'){
       const item=appId==='new'?null:await api(activityUrl+'?item='+encode(appId));
       if(item&&item.data.kind!=='app')throw Error('請在互動活動清單開啟這項活動。');
@@ -57,9 +58,9 @@
     if(area==='activities'){
       box.append(heading('我的互動活動',actions(button('按描述製作應用',act(()=>openApp('new')),'primary'),button('建立活動',()=>activityEditor()))));
       if(!items.length)box.append(empty('在這裏重開已儲存的應用，或建立配對練習和方程天平。'));
-      const kinds={app:'互動應用',match:'配對練習',balance:'方程天平'};
+      const kinds={percentLesson:'講義互動課',app:'互動應用',match:'配對練習',balance:'方程天平'};
       for(const item of items)box.append(row(item.title,kinds[item.kind]+' · 第 '+item.revision+' 版',
-        button('編輯與派發',act(async()=>item.kind==='app'?openApp(item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
+        button('編輯與派發',act(async()=>item.kind==='percentLesson'?openLesson(item.id):item.kind==='app'?openApp(item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
     }else{
       library=items;
       box.append(heading('我的課堂導師',button('建立導師',()=>tutorEditor(), 'primary')));
@@ -68,6 +69,17 @@
         button('編輯與試問',()=>tutorEditor(t))));
     }
     activeApp=null;dirty=false;work.replaceChildren(box);tabs();
+  }
+  async function openLesson(id){
+    const item=id==='new'?null:await api(activityUrl+'?item='+encode(id));
+    if(item&&item.data.kind!=='percentLesson')throw Error('請在互動活動清單開啟這項活動。');
+    const next=await EduPercentLessonEditor.open({item,api,post,url:activityUrl,host:work,run,
+      setDirty:value=>{dirty=value;},selectKey:key=>{appId=key;tabs();},deliveryFor:classDelivery,
+      importFile:f=>{
+        const form=new FormData();form.set('file',f);form.set('account_id',session.account_id);
+        return api(base+'tutors/import'+classSuffix(),{method:'POST',headers:{'X-Eduflow-CSRF':session.csrf_token},body:form});
+      }});
+    area='lesson';appId=id;activeApp=next;dirty=false;tabs();
   }
   async function openApp(id){
     const item=id==='new'?null:await api(activityUrl+'?item='+encode(id));
@@ -115,13 +127,14 @@
             const cell=el('td',text);
             const history=Array.isArray(student.hints)?student.hints:[];
             if(history.length)cell.append(' · 已用 '+history.length+' 個提示');
-            const hasCanvas=student.submitted&&student.answers&&report.data?.kind==='app';
+            const hasCanvas=student.submitted&&student.answers&&['app','percentLesson'].includes(report.data?.kind);
             if(hasCanvas||history.length){
               cell.append(button(hasCanvas?'查看紀錄':'查看提示',()=>{
                 submission.replaceChildren(el('h3',student.label+(hasCanvas?'的提交紀錄':'的提示紀錄')));
                 if(hasCanvas){
                   const holder=el('div');submission.append(holder);
-                  EduStudioApp.mount(holder,report.data,student.answers,()=>{},true);
+                  if(report.data.kind==='percentLesson')EduPercentLesson.mount(holder,EduPercentLesson.project(report.data),{answers:student.answers,readonly:true});
+                  else EduStudioApp.mount(holder,report.data,student.answers,()=>{},true);
                 }
                 if(history.length){
                   if(hasCanvas)submission.append(el('h4','操作提示'));
@@ -441,15 +454,15 @@
     const next=e.target.closest('[data-area]')?.dataset.area;
     if(!next||(!activeApp&&!canLeave()))return;
     run(async()=>{
-      if(activeApp&&!dirty&&next==='app'&&appId==='new')return;
+      if(activeApp&&!dirty&&area===next&&appId==='new')return;
       if(activeApp&&dirty)await activeApp.flush();
-      const previous=area,previousId=appId;area=next;if(next==='app')appId='new';
+      const previous=area,previousId=appId;area=next;if(['app','lesson'].includes(next))appId='new';
       try{await dashboard();}catch(err){area=previous;appId=previousId;throw err;}
     });
   };
   selector.onchange=()=>{
     const next=selector.value,previous=room;
-    if(activeApp){room=next;activeApp.roomChange();return;}
+    if(activeApp){room=next;tabs();activeApp.roomChange();return;}
     if(!canLeave()){selector.value=room;return;}
     run(async()=>{room=next;try{await dashboard();}catch(err){selector.value=room=previous;throw err;}});
   };

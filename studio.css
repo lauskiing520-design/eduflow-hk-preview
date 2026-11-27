@@ -55,3 +55,17 @@
 .studio .studio-hint-log li p{margin:.16rem 0 .35rem}
 .studio .hint-source{font-weight:650}
 @media(max-width:47rem){.studio-play-layout{grid-template-columns:minmax(0,1fr)}.studio .studio-hint-panel{border-inline-start:0;border-top:1px solid #bacfdd;padding:1rem 0 0}}
+
+.lesson-maker-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.25rem;align-items:start}
+.lesson-maker .lesson-evidence{margin:.6rem 0;padding:.6rem .95rem;border-left:3px solid #3d7aab;background:#f2f7fa;white-space:pre-line;overflow-wrap:anywhere}
+.lesson-maker .lesson-illustration{margin:0;padding:clamp(1rem,2vw,1.75rem);background:#edf5fa;border:1px solid #d5e4ed;border-radius:.55rem}
+.lesson-illustration figcaption{font-weight:650;margin-bottom:.9rem;color:#284f68}
+.lesson-illustration>div{display:grid;grid-template-columns:4.5rem minmax(0,1fr) 3.6rem;align-items:center;gap:.6rem;margin:.65rem 0;color:#34566c}
+.lesson-illustration>div>span:nth-child(2){display:block;background:#dde8ee}
+.lesson-illustration i{display:block;height:.7rem;background:#3785af}
+.lesson-illustration>div:last-child i{background:#237969}
+.lesson-illustration strong{text-align:right;font-variant-numeric:tabular-nums}
+.lesson-maker>section{margin-top:1.25rem}
+.lesson-maker-side,.lesson-maker .panel{min-width:0}
+.lesson-maker .lesson-grade{margin:.4rem 0}
+@media(max-width:52rem){.lesson-maker-columns{grid-template-columns:minmax(0,1fr)}}
