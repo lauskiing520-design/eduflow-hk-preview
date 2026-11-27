@@ -10,6 +10,9 @@
 .investigation-help>summary,.investigation-preview>summary{cursor:pointer;font-weight:650;padding:.4rem 0;color:#174555}
 .investigation-preview{margin-top:1rem}
 .investigation-feedback p{white-space:pre-wrap;overflow-wrap:anywhere}
+.science-breakdown{margin-block:1rem;padding-block:.9rem;border-block:1px solid #c8d7d1;color:#203c36}
+.science-breakdown summary{cursor:pointer;font-weight:650}
+.science-breakdown li{margin-block:.45rem;overflow-wrap:anywhere}
 .studio-balance{position:relative;width:min(16rem,94%);height:6.8rem;margin:.4rem auto 1rem;border-bottom:2px solid #869eaf}
 .studio-balance:before{content:"";position:absolute;left:50%;top:2.65rem;bottom:0;width:.85rem;background:#385b71;transform:translateX(-50%);clip-path:polygon(45% 0,55% 0,100% 100%,0 100%)}
 .studio-beam{position:absolute;left:10%;right:10%;top:2.6rem;height:.25rem;background:#245b80;border-radius:.2rem;transform:rotate(var(--studio-tilt,0deg));transition:transform .17s ease-out}

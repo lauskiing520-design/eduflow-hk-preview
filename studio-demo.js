@@ -7,6 +7,9 @@
   const areaItem='6'.repeat(32), areaPin='7'.repeat(32);
   const lessonItem='8'.repeat(32), lessonPin='9'.repeat(32);
   const printItem='10'.repeat(16), printPin='11'.repeat(16);
+  const scienceItem='12'.repeat(16), sciencePin='13'.repeat(16);
+  const essayKinds=['priceInvestigation','scienceInquiryLab'];
+  const engineKinds=['app','percentLesson',...essayKinds];
   const activityPath='/api/eduflow/ai/studio/activities', tutorPath='/api/eduflow/ai/studio/tutors';
   const examples={
     match:{kind:'match',title:'辨認移項後的方程',instructions:'把每條方程與正確的第一步配對。',pairs:[
@@ -44,6 +47,11 @@
       s.activities[printItem]={id:printItem,revision:1,data};
       s.pins[printPin]={id:printPin,item:printItem,room:rooms[2].id,revision:1,active:true,data:clone(data)};
     }
+    if(!s.activities[scienceItem]){
+      const data=EduScienceInquiry.create();
+      s.activities[scienceItem]={id:scienceItem,revision:1,data};
+      s.pins[sciencePin]={id:sciencePin,item:scienceItem,room:rooms[0].id,revision:1,active:true,data:clone(data)};
+    }
     return s;
   }
   const room=id=>rooms.find(x=>x.id===id);
@@ -57,6 +65,7 @@
     s.rev++;localStorage.setItem(storage,JSON.stringify(s));
   }
   function validate(d){
+    if(d?.kind==='scienceInquiryLab')return EduScienceInquiry.validate(d);
     if(d?.kind==='priceInvestigation')return EduInvestigation.validate(d);
     if(!d||!clean(d.title,100)||!clean(d.instructions,600))fail('請填寫活動名稱（最多 100 字）和說明（最多 600 字）。');
     if(d.kind==='app')return EduStudioApp.validate(d);
@@ -114,8 +123,9 @@
   function workKind(s,key){
     if(key==='new')return 'app';
     if(key==='lesson-new')return 'percentLesson';
+    if(key==='science-new')return 'scienceInquiryLab';
     const kind=ident(key)&&s.activities[key]?.data?.kind;
-    if(!['app','percentLesson'].includes(kind))fail('找不到這份工作草稿。',404);
+    if(!['app','percentLesson','scienceInquiryLab'].includes(kind))fail('找不到這份工作草稿。',404);
     return kind;
   }
   function activity(s,url,b){
@@ -132,24 +142,26 @@
       if(url.searchParams.has('pin')){
         const p=s.pins[url.searchParams.get('pin')];if(!p)fail('找不到派發記錄。',404);
         const r=s.receipts[p.id];
-        const maximum=p.data.kind==='match'?p.data.pairs.length:p.data.kind==='app'?Number(!!p.data.challenge):p.data.kind==='priceInvestigation'?8:1;
-        const interactive=['app','percentLesson','priceInvestigation'].includes(p.data.kind);
+        const maxima={priceInvestigation:8,scienceInquiryLab:5};
+        const maximum=p.data.kind==='match'?p.data.pairs.length:p.data.kind==='app'?Number(!!p.data.challenge):(maxima[p.data.kind]??1);
+        const interactive=engineKinds.includes(p.data.kind);
         return {title:p.data.title,className:room(p.room).name,...(interactive?{data:clone(p.data)}:{}),
           students:[{label:'示例學生 01',submitted:!!r,score:r?.score??null,max:r?.max??maximum,
             ...(['app','priceInvestigation'].includes(p.data.kind)?{hints:studentHints(s,p.id)}:{}),
-            ...(p.data.kind==='priceInvestigation'&&r?{id:'demo',review:r.review||null}:{}),
+            ...(essayKinds.includes(p.data.kind)&&r?{id:'demo',review:r.review||null}:{}),
             ...(interactive&&r?{answers:r.answers}:{})}]};
       }
       return {rooms,items:arr(s.activities).map(x=>({id:x.id,title:x.data.title,kind:x.data.kind,revision:x.revision}))};
     }
     if(b.action==='generate'){
+      if(b.kind==='scienceInquiryLab')return {data:EduScienceInquiry.parse(b.brief),generator:'guided'};
       if(b.kind==='percentLesson')return {data:EduPercentLesson.parse(b.brief),generator:'guided'};
       return {data:b.kind==='app'?EduStudioAppExamples.build(b.brief,b.base):draft(b.kind,b.brief)};
     }
     if(b.action==='work'){
       const key=b.id;
       const kind=workKind(s,key);
-      if(typeof b.brief!=='string'||b.brief.length>(kind==='percentLesson'?6000:1200)||!Number.isSafeInteger(b.sourceRevision)||b.sourceRevision<0||
+      if(typeof b.brief!=='string'||b.brief.length>(kind==='app'?1200:6000)||!Number.isSafeInteger(b.sourceRevision)||b.sourceRevision<0||
         !Number.isSafeInteger(b.revision)||b.revision<0||!Object.hasOwn(b,'base'))fail('草稿內容無效。');
       const current=s.activities[key]?.revision??0;
       if(b.sourceRevision!==current)fail('原應用已在另一分頁更新，請先讀取最新版本。',409);
@@ -163,7 +175,7 @@
     }
     if(b.action==='review'){
       const p=s.pins[b.pin],r=p&&s.receipts[p.id],comment=clean(b.comment,600);
-      if(p?.data.kind!=='priceInvestigation'||!r||b.student!=='demo')fail('找不到這份已提交的採購建議。',404);
+      if(!essayKinds.includes(p?.data.kind)||!r||b.student!=='demo')fail('找不到這份已提交的探究紀錄。',404);
       if(!comment)fail('請輸入最多 600 字的回饋。');
       if(r.review?.comment!==comment){
         if(b.revision!==(r.review?.revision||0))fail('回饋剛被更新，請重新讀取。',409);
@@ -225,17 +237,20 @@
     return {hint:hints[hints.length-1],hints};
   }
   function studentActivity(s,b){
-    const sample=b?.pin==='area-lab'?areaItem:b?.pin==='percent-lesson'?lessonItem:b?.pin==='print-lab'?printItem:null;
+    const aliases={'area-lab':areaItem,'percent-lesson':lessonItem,'print-lab':printItem,'science-lab':scienceItem};
+    const sample=Object.hasOwn(aliases,b?.pin)?aliases[b.pin]:null;
     const p=sample?arr(s.pins).find(pin=>pin.active&&pin.item===sample&&pin.room===rooms[sample===printItem?2:0].id):s.pins[b?.pin];
     if(!p?.active)fail('這個活動已收起，請返回課室。',404);
     const d=p.data,data=publicData(d,p.options),empty={revision:0,answers:null};
     s.drafts??={};let draft=s.drafts[p.id]||empty;
-    if(['app','percentLesson','priceInvestigation'].includes(d.kind)){
-      const lesson=d.kind==='percentLesson',investigation=d.kind==='priceInvestigation';
-      if(b.action==='hint'&&!lesson)return requestHint(s,p,b);
+    if(engineKinds.includes(d.kind)){
+      const lesson=d.kind==='percentLesson',investigation=d.kind==='priceInvestigation',science=d.kind==='scienceInquiryLab';
+      const hasHints=investigation||d.kind==='app';
+      if(b.action==='hint'&&hasHints)return requestHint(s,p,b);
       if(!['read','draft','submit'].includes(b.action))fail('未支援這個操作。');
       if(b.action!=='read'&&!s.receipts[p.id]){
-        const result=investigation?EduInvestigation.grade(d,EduInvestigation.mergeHistory(d,draft.answers,b.answers),b.action==='submit'):
+        const result=science?EduScienceInquiry.grade(d,b.answers,b.action==='submit'):
+          investigation?EduInvestigation.grade(d,EduInvestigation.mergeHistory(d,draft.answers,b.answers),b.action==='submit'):
           lesson?EduPercentLesson.grade(d,b.answers,b.action==='submit'):EduStudioApp.answer(d,b.answers,b.action==='submit');
         const same=JSON.stringify(draft.answers)===JSON.stringify(result.answers);
         if((b.revision??0)!==draft.revision&&!(b.action==='draft'&&same))fail('進度已在另一分頁更新，請重新讀取。',409);
@@ -246,8 +261,9 @@
           draft={revision:draft.revision+1,answers:result.answers};s.drafts[p.id]=draft;save(s);
         }
       }
-      return {id:p.id,data,receipt:s.receipts[p.id]||null,draft,...(lesson?{}:{hints:studentHints(s,p.id)}),
-        teacherView:'studio.html?class='+encodeURIComponent(p.room)+(investigation?'#investigation/':lesson?'#lesson/':'#app/')+encodeURIComponent(p.item)};
+      const editors={scienceInquiryLab:'science',priceInvestigation:'investigation',percentLesson:'lesson',app:'app'};
+      return {id:p.id,data,receipt:s.receipts[p.id]||null,draft,...(hasHints?{hints:studentHints(s,p.id)}:{}),
+        teacherView:'studio.html?class='+encodeURIComponent(p.room)+'#'+editors[d.kind]+'/'+encodeURIComponent(p.item)};
     }
     if(!s.receipts[p.id]&&['submit','draft'].includes(b.action)){
       const a=b.answers,max=d.kind==='match'?d.pairs.length:1;

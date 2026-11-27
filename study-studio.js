@@ -55,6 +55,10 @@
       $('scope').textContent='中二數學　/　百分法與一次方程';
       box.classList.add('investigation-host');
     }
+    if(d.data.kind==='scienceInquiryLab'){
+      $('scope').textContent='中一科學　/　公平測試與實驗證據';
+      box.classList.add('investigation-host');
+    }
     if(d.data.kind==='percentLesson'){
       const next=el('a','挑戰進階探究：校刊印刷報價','button');
       next.href='study-studio.html?activity=print-lab';box.before(next);

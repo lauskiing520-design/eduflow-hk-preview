@@ -12,7 +12,7 @@
   const button=(text,handler,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=handler;return b;};
   const note=(message,error=false)=>{status.textContent=message;status.classList.toggle('error',error);};
   const entry=location.hash.slice(1).split('/');
-  const editorAreas=['app','lesson','investigation'];
+  const editorAreas=['app','lesson','investigation','science'];
   let session,room=params.get('class')||'',area=[...editorAreas,'tutors'].includes(entry[0])?entry[0]:'activities',busy=false,dirty=false,library,rooms=[];
   let appId=editorAreas.includes(entry[0])?entry[1]||'new':'new',activeApp=null;
   function busyState(value){busy=value;work.inert=value;$('tabs').inert=value;selector.disabled=value||!rooms.length;}
@@ -48,6 +48,7 @@
   function empty(txt){return el('p',txt,'empty');}
   function row(name,hint,...options){return append('div','line',append('div','',el('strong',name),el('p',hint,'muted')),actions(...options));}
   async function dashboard(){
+    if(area==='science'){await openScience(appId);return;}
     if(area==='investigation'){await openInvestigation(appId);return;}
     if(area==='lesson'){await openLesson(appId);return;}
     if(area==='app'){
@@ -60,9 +61,10 @@
     if(area==='activities'){
       box.append(heading('我的互動活動',actions(button('按描述製作應用',act(()=>openApp('new')),'primary'),button('建立活動',()=>activityEditor()))));
       if(!items.length)box.append(empty('在這裏重開已儲存的應用，或建立配對練習和方程天平。'));
-      const kinds={priceInvestigation:'數學探究課',percentLesson:'講義互動課',app:'互動應用',match:'配對練習',balance:'方程天平'};
+      const kinds={scienceInquiryLab:'科學探究課',priceInvestigation:'數學探究課',percentLesson:'講義互動課',app:'互動應用',match:'配對練習',balance:'方程天平'};
+      const editors={scienceInquiryLab:openScience,priceInvestigation:openInvestigation,percentLesson:openLesson,app:openApp};
       for(const item of items)box.append(row(item.title,kinds[item.kind]+' · 第 '+item.revision+' 版',
-        button('編輯與派發',act(async()=>item.kind==='priceInvestigation'?openInvestigation(item.id):item.kind==='percentLesson'?openLesson(item.id):item.kind==='app'?openApp(item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
+        button('編輯與派發',act(async()=>editors[item.kind]?editors[item.kind](item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
     }else{
       library=items;
       box.append(heading('我的課堂導師',button('建立導師',()=>tutorEditor(), 'primary')));
@@ -71,6 +73,13 @@
         button('編輯與試問',()=>tutorEditor(t))));
     }
     activeApp=null;dirty=false;work.replaceChildren(box);tabs();
+  }
+  async function openScience(key){
+    const item=key==='new'?null:await api(activityUrl+'?item='+encode(key));
+    if(item&&item.data.kind!=='scienceInquiryLab')throw Error('請從活動清單開啟這節科學探究課。');
+    const next=await EduScienceUI.open({item,api,post,url:activityUrl,host:work,run,setDirty:v=>{dirty=v;},
+      selectKey:id=>{appId=id;tabs();},deliveryFor:classDelivery});
+    area='science';appId=key;activeApp=next;tabs();
   }
   async function openInvestigation(key){
     const item=key==='new'?null:await api(activityUrl+'?item='+encode(key));
@@ -136,6 +145,26 @@
     }
     return '';
   }
+  function scienceBreakdown(report){
+    const stats=EduScienceInquiry.classSummary(report.data,report.students);
+    const block=el('section',undefined,'science-breakdown');block.append(el('h3','班級證據題分析'));
+    if(!stats.submitted){block.append(el('p','收到作答後會列出每題的選項分布。'));return block;}
+    if(stats.priority){
+      const item=stats.priority;
+      block.append(el('strong','優先講評 · '+item.question),el('p',item.wrong+' 人答錯，其中 '+item.topWrong.count+' 人選了「'+item.topWrong.label+'」。'),
+        el('p',item.analysis,'muted'));
+    }else block.append(el('p','目前交回的有效答案全部正確。'));
+    const detail=el('details');detail.append(el('summary','查看五題的作答分布'));
+    const list=el('ol');
+    for(const item of stats.questions){
+      const entry=el('li');
+      entry.append(el('strong',item.question),el('p',item.correct+' / '+item.answered+' 人答對'+(item.missing?' · '+item.missing+' 份缺答':'')));
+      const votes=el('ul');
+      for(const option of item.options.filter(o=>o.count))votes.append(el('li',option.label+' · '+option.count+' 人'+(option.isCorrect?'（正確）':'')));
+      entry.append(votes);list.append(entry);
+    }
+    detail.append(list);block.append(detail);return block;
+  }
   function classDelivery(id,initialPins,version,hasEdits){
     const side=panel();let pins=initialPins,pinRequest=uuid(),pinScope='';
     async function refreshPins(){const latest=await api(activityUrl+'?item='+encode(id));pins=latest.pins;drawSide();}
@@ -166,19 +195,19 @@
             const cell=el('td',text);
             const history=Array.isArray(student.hints)?student.hints:[];
             if(history.length)cell.append(' · 已用 '+history.length+' 個提示');
-            const inquiry=report.data?.kind==='priceInvestigation';
-            if(inquiry&&student.submitted)cell.append(student.review?' · 已回覆建議':' · 建議待覆核');
-            const hasCanvas=student.submitted&&student.answers&&['app','percentLesson','priceInvestigation'].includes(report.data?.kind);
+            const science=report.data?.kind==='scienceInquiryLab',inquiry=science||report.data?.kind==='priceInvestigation';
+            if(inquiry&&student.submitted)cell.append(student.review?' · 已回覆建議':science&&!student.answers?.reason?' · 已交實驗紀錄':' · 建議待覆核');
+            const hasCanvas=student.submitted&&student.answers&&(inquiry||['app','percentLesson'].includes(report.data?.kind));
             if(hasCanvas||history.length){
               cell.append(button(hasCanvas?'查看紀錄':'查看提示',()=>{
                 submission.replaceChildren(el('h3',student.label+(hasCanvas?'的提交紀錄':'的提示紀錄')));
                 if(hasCanvas){
                   const holder=el('div');submission.append(holder);
                   if(inquiry){
-                    EduInvestigationUI.mount(holder,{data:report.data,answers:student.answers,readonly:true});
+                    (science?EduScienceUI:EduInvestigationUI).mount(holder,{data:report.data,answers:student.answers,readonly:true});
                     const comment=field(student.review?.comment||'',600,true),resp=el('p');
                     comment.rows=3;resp.setAttribute('role','status');
-                    submission.append(label('給學生的回饋',comment),button('回覆採購建議',act(async()=>{
+                    submission.append(label('給學生的回饋',comment),button(science?'回覆實驗紀錄':'回覆採購建議',act(async()=>{
                       const result=await post(activityUrl,{action:'review',pin:pin.id,student:student.id,comment:comment.value,revision:student.review?.revision||0});
                       student.review=result.review;resp.textContent='已回覆，學生重開這份作答便可查看。';
                       cell.firstChild.textContent=student.score+' / '+student.max+' 分';
@@ -197,7 +226,8 @@
             }
             body.append(append('tr','',el('td',student.label),cell));
           }
-          table.append(body);result.replaceChildren(table,submission);note('已讀取完成情況。');
+          table.append(body);result.replaceChildren(...(report.data?.kind==='scienceInquiryLab'?[scienceBreakdown(report)]:[]),table,submission);
+          note('已讀取完成情況。');
         }));if(pin===pins[0])side.append(el('h3','各班完成情況','space'));side.append(b,result);
       }
     }

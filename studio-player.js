@@ -9,6 +9,7 @@ window.EduStudioPlayer=(()=>{
       choices:[...data.pairs.slice(1),data.pairs[0]].map(p=>p.right)};
   }
   function scorePreview(data,view,answers){
+    if(data.kind==='scienceInquiryLab')return EduScienceInquiry.grade(data,answers,true);
     if(data.kind==='priceInvestigation')return EduInvestigation.grade(data,answers,true);
     if(data.kind==='percentLesson')return EduPercentLesson.grade(data,answers,true);
     if(data.kind==='app'){
@@ -98,7 +99,8 @@ window.EduStudioPlayer=(()=>{
     fields.className='studio-player-fields';fields.append(legend);
     const message=el('p');message.setAttribute('role','status');
     const previous=receipt?.answers||draft?.answers;
-    const investigation=data.kind==='priceInvestigation';
+    const science=data.kind==='scienceInquiryLab',investigation=science||data.kind==='priceInvestigation';
+    const courseUI=investigation?(science?EduScienceUI:EduInvestigationUI):null;
     let saved,saveTimer,saving=null,closed=Boolean(receipt);
     async function flushProgress(){
       clearTimeout(saveTimer);
@@ -121,13 +123,13 @@ window.EduStudioPlayer=(()=>{
     }
     if(investigation){
       form.className='investigation-session';
-      legend.textContent='校刊報價探究作答';
+      legend.textContent=science?'科學實驗紀錄與作答':'校刊報價探究作答';
       legend.className='iv-sr-only';instruction.hidden=true;
     }
     let read,canvas,help,lesson,updateLessonSubmit=()=>{};
     if(investigation){
       canvas=el('div');fields.append(canvas);
-      lesson=EduInvestigationUI.mount(canvas,{data,answers:previous||undefined,readonly:Boolean(receipt),
+      lesson=courseUI.mount(canvas,{data,answers:previous||undefined,readonly:Boolean(receipt),
         onChange:()=>{updateLessonSubmit();help?.stateChanged();scheduleProgress();}});
       read=()=>lesson.read();
       saved=JSON.stringify(read());
@@ -175,6 +177,11 @@ window.EduStudioPlayer=(()=>{
     if(lesson){
       updateLessonSubmit=()=>{
         const answers=read();
+        if(science){
+          button.disabled=!EduScienceInquiry.isComplete(data,answers);
+          button.title=button.disabled?'完成課堂內的五道選擇題後即可交回。':'';
+          return;
+        }
         if(investigation){
           button.disabled=!['quote','model','budget','advice'].every(s=>EduInvestigation.diagnose(data,answers,s).complete);
           button.title=button.disabled?'完成報價、預算及採購建議後即可交回。':'';
@@ -192,7 +199,7 @@ window.EduStudioPlayer=(()=>{
       if(canvas){
         canvas.inert=false;
         if(investigation){
-          lesson.destroy();lesson=EduInvestigationUI.mount(canvas,{data,answers:r.answers,readonly:true});
+          lesson.destroy();lesson=courseUI.mount(canvas,{data,answers:r.answers,readonly:true});
           fields.disabled=false;
         }else if(lesson){lesson.destroy();lesson=EduPercentLesson.mount(canvas,data,{answers:r.answers,readonly:true});}
         else EduStudioApp.mount(canvas,data,r.answers,()=>{},true);
@@ -201,7 +208,7 @@ window.EduStudioPlayer=(()=>{
       if(investigation){
         message.textContent='已交回 · 客觀題 '+r.score+' / '+r.max+' 分。';
         const feedback=el('section');feedback.className='panel investigation-feedback';
-        feedback.append(el('h3',r.review?'老師給你的回饋':'採購建議待老師覆核'));
+        feedback.append(el('h3',r.review?'老師給你的回饋':science?'實驗紀錄已交給老師':'採購建議待老師覆核'));
         if(r.review)feedback.append(el('p',r.review.comment));
         message.after(feedback);
       }
