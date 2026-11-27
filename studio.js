@@ -12,8 +12,9 @@
   const button=(text,handler,cls)=>{const b=el('button',text,cls);b.type='button';b.onclick=handler;return b;};
   const note=(message,error=false)=>{status.textContent=message;status.classList.toggle('error',error);};
   const entry=location.hash.slice(1).split('/');
-  let session,room=params.get('class')||'',area=['tutors','app','lesson'].includes(entry[0])?entry[0]:'activities',busy=false,dirty=false,library,rooms=[];
-  let appId=['app','lesson'].includes(entry[0])?entry[1]||'new':'new',activeApp=null;
+  const editorAreas=['app','lesson','investigation'];
+  let session,room=params.get('class')||'',area=[...editorAreas,'tutors'].includes(entry[0])?entry[0]:'activities',busy=false,dirty=false,library,rooms=[];
+  let appId=editorAreas.includes(entry[0])?entry[1]||'new':'new',activeApp=null;
   function busyState(value){busy=value;work.inert=value;$('tabs').inert=value;selector.disabled=value||!rooms.length;}
   async function run(fn){
     if(busy)return;busyState(true);note('');
@@ -34,7 +35,7 @@
   const classLabel=id=>rooms.find(r=>r.id===id)?.name||'班級';
   function tabs(){
     for(const b of $('tabs').querySelectorAll('button')){if(b.dataset.area===area)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');}
-    const url=new URL(location.href);if(room)url.searchParams.set('class',room);url.hash=['app','lesson'].includes(area)&&appId!=='new'?area+'/'+appId:area;history.replaceState(null,'',url);
+    const url=new URL(location.href);if(room)url.searchParams.set('class',room);url.hash=editorAreas.includes(area)&&appId!=='new'?area+'/'+appId:area;history.replaceState(null,'',url);
     $('back').href='schools.html';
   }
   function canLeave(){return !dirty||confirm('尚有未儲存的更改。捨棄這次修改？');}
@@ -47,6 +48,7 @@
   function empty(txt){return el('p',txt,'empty');}
   function row(name,hint,...options){return append('div','line',append('div','',el('strong',name),el('p',hint,'muted')),actions(...options));}
   async function dashboard(){
+    if(area==='investigation'){await openInvestigation(appId);return;}
     if(area==='lesson'){await openLesson(appId);return;}
     if(area==='app'){
       const item=appId==='new'?null:await api(activityUrl+'?item='+encode(appId));
@@ -58,9 +60,9 @@
     if(area==='activities'){
       box.append(heading('我的互動活動',actions(button('按描述製作應用',act(()=>openApp('new')),'primary'),button('建立活動',()=>activityEditor()))));
       if(!items.length)box.append(empty('在這裏重開已儲存的應用，或建立配對練習和方程天平。'));
-      const kinds={percentLesson:'講義互動課',app:'互動應用',match:'配對練習',balance:'方程天平'};
+      const kinds={priceInvestigation:'數學探究課',percentLesson:'講義互動課',app:'互動應用',match:'配對練習',balance:'方程天平'};
       for(const item of items)box.append(row(item.title,kinds[item.kind]+' · 第 '+item.revision+' 版',
-        button('編輯與派發',act(async()=>item.kind==='percentLesson'?openLesson(item.id):item.kind==='app'?openApp(item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
+        button('編輯與派發',act(async()=>item.kind==='priceInvestigation'?openInvestigation(item.id):item.kind==='percentLesson'?openLesson(item.id):item.kind==='app'?openApp(item.id):activityEditor(await api(activityUrl+'?item='+encode(item.id)))))));
     }else{
       library=items;
       box.append(heading('我的課堂導師',button('建立導師',()=>tutorEditor(), 'primary')));
@@ -69,6 +71,43 @@
         button('編輯與試問',()=>tutorEditor(t))));
     }
     activeApp=null;dirty=false;work.replaceChildren(box);tabs();
+  }
+  async function openInvestigation(key){
+    const item=key==='new'?null:await api(activityUrl+'?item='+encode(key));
+    if(item&&item.data.kind!=='priceInvestigation')throw Error('請從活動清單重開這節探究課。');
+    const id=item?.id||uuid(),spec=item?.data||EduInvestigation.create();
+    let revision=item?.revision||0,player;
+    area='investigation';appId=key;activeApp=null;dirty=false;tabs();
+    const box=panel(el('p','中二數學 · 百分法與方程','muted'),el('h2',spec.title),
+      el('p','兩家印刷廠爭取校刊訂單。一家有起版費，一家折扣較大。學生要找出甚麼印量值得轉廠，並向編委會提出有數據支持的建議。'));
+    const budget=el('select'),choices=[...new Set([1050,1400,1480,2000,spec.budget])].sort((a,b)=>a-b);
+    for(const n of choices)budget.add(new Option('HK$'+n.toLocaleString('en-HK'),String(n)));
+    budget.value=String(spec.budget);
+    const delivery=classDelivery(id,item?.pins||[],()=>revision,()=>false);
+    const preview=el('details'),canvas=el('div');preview.className='panel investigation-preview';
+    preview.append(el('summary','試做學生任務'),canvas);
+    const mount=()=>{player?.destroy();player=EduInvestigationUI.mount(canvas,{data:spec});};
+    preview.ontoggle=()=>{if(preview.open&&!player)mount();};
+    const feedback=el('p',revision?'第 '+revision+' 版已儲存。':'選好本次預算後即可儲存及派發。','muted');
+    const save=button('儲存這節探究課',act(persist),'primary');
+    async function persist(){
+      const next={...spec,budget:Number(budget.value)};
+      try{
+        const res=await post(activityUrl,{action:'save',id,revision,data:next});
+        revision=res.revision;Object.assign(spec,next);appId=id;tabs();save.hidden=true;
+        feedback.textContent='第 '+revision+' 版已儲存。';delivery.redraw();
+        if(preview.open)mount();else{player?.destroy();player=null;}
+      }catch(e){budget.value=String(spec.budget);throw e;}
+    }
+    save.hidden=Boolean(revision);budget.onchange=act(persist);
+    const answers=el('details'),solution=el('p');
+    const solutionText=()=>{const v=EduInvestigation.inspection(spec);
+      solution.textContent='甲廠總價 8x + 120，乙廠 9x。印 '+v.cross+' 本時同價。按目前預算，甲廠最多可印 '+v.maxA+' 本，乙廠 '+v.maxB+' 本。閱讀學生反例時，可追問起版費如何影響小額訂單。';};
+    answers.append(el('summary','教師備課參考'),solution);answers.ontoggle=solutionText;
+    budget.addEventListener('change',()=>{answers.open=false;});
+    box.append(label('校刊印刷預算（更改後自動儲存）',budget),feedback,save,answers);
+    work.replaceChildren(append('div','split',box,delivery.side),preview);
+    activeApp={flush:async()=>{},roomChange:()=>delivery.redraw()};
   }
   async function openLesson(id){
     const item=id==='new'?null:await api(activityUrl+'?item='+encode(id));
@@ -127,13 +166,25 @@
             const cell=el('td',text);
             const history=Array.isArray(student.hints)?student.hints:[];
             if(history.length)cell.append(' · 已用 '+history.length+' 個提示');
-            const hasCanvas=student.submitted&&student.answers&&['app','percentLesson'].includes(report.data?.kind);
+            const inquiry=report.data?.kind==='priceInvestigation';
+            if(inquiry&&student.submitted)cell.append(student.review?' · 已回覆建議':' · 建議待覆核');
+            const hasCanvas=student.submitted&&student.answers&&['app','percentLesson','priceInvestigation'].includes(report.data?.kind);
             if(hasCanvas||history.length){
               cell.append(button(hasCanvas?'查看紀錄':'查看提示',()=>{
                 submission.replaceChildren(el('h3',student.label+(hasCanvas?'的提交紀錄':'的提示紀錄')));
                 if(hasCanvas){
                   const holder=el('div');submission.append(holder);
-                  if(report.data.kind==='percentLesson')EduPercentLesson.mount(holder,EduPercentLesson.project(report.data),{answers:student.answers,readonly:true});
+                  if(inquiry){
+                    EduInvestigationUI.mount(holder,{data:report.data,answers:student.answers,readonly:true});
+                    const comment=field(student.review?.comment||'',600,true),resp=el('p');
+                    comment.rows=3;resp.setAttribute('role','status');
+                    submission.append(label('給學生的回饋',comment),button('回覆採購建議',act(async()=>{
+                      const result=await post(activityUrl,{action:'review',pin:pin.id,student:student.id,comment:comment.value,revision:student.review?.revision||0});
+                      student.review=result.review;resp.textContent='已回覆，學生重開這份作答便可查看。';
+                      cell.firstChild.textContent=student.score+' / '+student.max+' 分';
+                      if(cell.childNodes[1]?.nodeType===Node.TEXT_NODE)cell.childNodes[1].textContent=' · 已回覆建議';
+                    })),resp);
+                  }else if(report.data.kind==='percentLesson')EduPercentLesson.mount(holder,EduPercentLesson.project(report.data),{answers:student.answers,readonly:true});
                   else EduStudioApp.mount(holder,report.data,student.answers,()=>{},true);
                 }
                 if(history.length){
@@ -456,7 +507,7 @@
     run(async()=>{
       if(activeApp&&!dirty&&area===next&&appId==='new')return;
       if(activeApp&&dirty)await activeApp.flush();
-      const previous=area,previousId=appId;area=next;if(['app','lesson'].includes(next))appId='new';
+      const previous=area,previousId=appId;area=next;if(editorAreas.includes(next))appId='new';
       try{await dashboard();}catch(err){area=previous;appId=previousId;throw err;}
     });
   };

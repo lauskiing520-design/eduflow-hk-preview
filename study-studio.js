@@ -51,6 +51,14 @@
       teacherLink.textContent='到教師端查看這項活動';
     }
     const box=el('section',undefined,'panel');work.replaceChildren(box);
+    if(d.data.kind==='priceInvestigation'){
+      $('scope').textContent='中二數學　/　百分法與一次方程';
+      box.classList.add('investigation-host');
+    }
+    if(d.data.kind==='percentLesson'){
+      const next=el('a','挑戰進階探究：校刊印刷報價','button');
+      next.href='study-studio.html?activity=print-lab';box.before(next);
+    }
     let revision=d.draft?.revision||0;
     EduStudioPlayer.mount(box,d.data,d.receipt,async answers=>(await post('submit',{answers,revision})).receipt,
       d.draft,async answers=>{

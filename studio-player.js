@@ -9,6 +9,7 @@ window.EduStudioPlayer=(()=>{
       choices:[...data.pairs.slice(1),data.pairs[0]].map(p=>p.right)};
   }
   function scorePreview(data,view,answers){
+    if(data.kind==='priceInvestigation')return EduInvestigation.grade(data,answers,true);
     if(data.kind==='percentLesson')return EduPercentLesson.grade(data,answers,true);
     if(data.kind==='app'){
       const outcome=EduStudioApp.answer(data,answers,true);
@@ -97,8 +98,41 @@ window.EduStudioPlayer=(()=>{
     fields.className='studio-player-fields';fields.append(legend);
     const message=el('p');message.setAttribute('role','status');
     const previous=receipt?.answers||draft?.answers;
+    const investigation=data.kind==='priceInvestigation';
+    let saved,saveTimer,saving=null,closed=Boolean(receipt);
+    async function flushProgress(){
+      clearTimeout(saveTimer);
+      if(!investigation||!saveDraft||closed)return;
+      if(saving)return saving;
+      saving=(async()=>{
+        while(!closed&&saved!==JSON.stringify(read())){
+          const latest=read(),signature=JSON.stringify(latest);
+          await saveDraft(latest);saved=signature;
+        }
+      })();
+      try{await saving;}finally{saving=null;}
+    }
+    function scheduleProgress(){
+      if(!saved||!saveDraft||closed)return;
+      clearTimeout(saveTimer);
+      saveTimer=setTimeout(()=>flushProgress().then(()=>{
+        if(!closed)message.textContent='進度已保存。';
+      }).catch(err=>{message.textContent=err.message;}),650);
+    }
+    if(investigation){
+      form.className='investigation-session';
+      legend.textContent='校刊報價探究作答';
+      legend.className='iv-sr-only';instruction.hidden=true;
+    }
     let read,canvas,help,lesson,updateLessonSubmit=()=>{};
-    if(data.kind==='percentLesson'){
+    if(investigation){
+      canvas=el('div');fields.append(canvas);
+      lesson=EduInvestigationUI.mount(canvas,{data,answers:previous||undefined,readonly:Boolean(receipt),
+        onChange:()=>{updateLessonSubmit();help?.stateChanged();scheduleProgress();}});
+      read=()=>lesson.read();
+      saved=JSON.stringify(read());
+      if(Array.isArray(hints?.records)&&typeof hints.request==='function')help=hintPanel(hints,read,Boolean(receipt));
+    }else if(data.kind==='percentLesson'){
       canvas=el('div');fields.append(canvas);
       lesson=EduPercentLesson.mount(canvas,data,{answers:previous||undefined,readonly:Boolean(receipt),onChange:()=>updateLessonSubmit()});
       read=()=>lesson.read();
@@ -141,23 +175,42 @@ window.EduStudioPlayer=(()=>{
     if(lesson){
       updateLessonSubmit=()=>{
         const answers=read();
+        if(investigation){
+          button.disabled=!['quote','model','budget','advice'].every(s=>EduInvestigation.diagnose(data,answers,s).complete);
+          button.title=button.disabled?'完成報價、預算及採購建議後即可交回。':'';
+          return;
+        }
         button.disabled=answers.prediction===null||answers.trialUp===null||answers.exitPrice===null;
         button.title=button.disabled?'完成預測、試驗和新題後便可提交。':'';
       };
       updateLessonSubmit();
     }
     const report=r=>{
+      closed=true;clearTimeout(saveTimer);
       fields.disabled=true;bar.hidden=true;
       help?.finish();
       if(canvas){
         canvas.inert=false;
-        if(lesson){lesson.destroy();lesson=EduPercentLesson.mount(canvas,data,{answers:r.answers,readonly:true});}
+        if(investigation){
+          lesson.destroy();lesson=EduInvestigationUI.mount(canvas,{data,answers:r.answers,readonly:true});
+          fields.disabled=false;
+        }else if(lesson){lesson.destroy();lesson=EduPercentLesson.mount(canvas,data,{answers:r.answers,readonly:true});}
         else EduStudioApp.mount(canvas,data,r.answers,()=>{},true);
       }
       message.textContent=r.max===0?'已提交探索紀錄。':'已完成，得分 '+r.score+' / '+r.max+'。';
+      if(investigation){
+        message.textContent='已交回 · 客觀題 '+r.score+' / '+r.max+' 分。';
+        const feedback=el('section');feedback.className='panel investigation-feedback';
+        feedback.append(el('h3',r.review?'老師給你的回饋':'採購建議待老師覆核'));
+        if(r.review)feedback.append(el('p',r.review.comment));
+        message.after(feedback);
+      }
     };
     form.append(instruction);
-    if(help){
+    if(help&&investigation){
+      const prompt=el('details'),toggle=el('summary','卡在哪一步？取得課堂追問');prompt.className='investigation-help';
+      prompt.append(toggle,help.host);form.append(fields,prompt);
+    }else if(help){
       const workspace=el('div');workspace.className='studio-play-layout';
       workspace.append(fields,help.host);form.append(workspace);
     }else form.append(fields);
@@ -167,7 +220,7 @@ window.EduStudioPlayer=(()=>{
     save.onclick=async()=>{
       if(!saveDraft||save.disabled)return;const answers=read();
       button.disabled=save.disabled=fields.disabled=true;if(canvas)canvas.inert=true;
-      try{await saveDraft(answers);message.textContent='進度已保存，可從學生入口繼續。';}
+      try{if(investigation)await flushProgress();else await saveDraft(answers);message.textContent='進度已保存，可從學生入口繼續。';}
       catch(err){message.textContent=err.message;}
       finally{button.disabled=save.disabled=fields.disabled=false;if(canvas)canvas.inert=false;updateLessonSubmit();}
     };
@@ -176,7 +229,7 @@ window.EduStudioPlayer=(()=>{
       const answers=read();
       if(data.kind==='match'&&new Set(answers).size!==answers.length){message.textContent='每個選項只可配對一次，請檢查重複的選項。';return;}
       button.disabled=save.disabled=true;fields.disabled=true;if(canvas)canvas.inert=true;message.textContent='正在提交…';
-      try{const r=await submit(answers);report(r);}
+      try{if(investigation)await flushProgress();const r=await submit(answers);report(r);}
       catch(error){message.textContent=error.message;button.disabled=save.disabled=false;fields.disabled=false;if(canvas)canvas.inert=false;updateLessonSubmit();}
     };
   }

@@ -1,0 +1,144 @@
+.iv-workbench {
+  --iv-ink:#142f43; --iv-muted:#455d6b; --iv-blue:#2456a5; --iv-orange:#ad452c;
+  --iv-rule:#c7d4dc; --iv-mint:#036d66;
+  width:100%;min-width:0;margin:0;color:var(--iv-ink);
+  font-family:"Instrument Sans","Microsoft JhengHei","PingFang HK",system-ui,sans-serif;
+  line-height:1.55;font-variant-numeric:tabular-nums;text-align:start;container-type:inline-size;
+}
+.iv-workbench * {box-sizing:border-box}
+.iv-workbench :is(h3,p,figure,dl) {margin:0}
+.iv-workbench :focus-visible {outline:3px solid #237db3;outline-offset:2px}
+.iv-workbench button {font:inherit;cursor:pointer}
+.iv-workbench .iv-quotes {
+  display:grid;grid-template-columns:minmax(0,1fr) repeat(2,minmax(0,1.08fr));align-items:stretch;
+  border:1px solid var(--iv-rule);border-radius:3px;background:#fff;
+}
+.iv-workbench .iv-quotes article {position:relative;min-width:0;padding:clamp(.82rem,1.9vw,1.35rem) clamp(.85rem,2vw,1.6rem)}
+.iv-workbench .iv-quotes .iv-budget {background:#e7f1f3;border-inline-end:1px solid #becfd3}
+.iv-budget::after {
+  content:"";position:absolute;right:.9rem;top:.95rem;width:.65rem;height:.65rem;
+  border:1px solid #48838b;border-radius:50%;background:linear-gradient(to right,transparent 45%,#48838b 45% 55%,transparent 55%),
+  linear-gradient(to bottom,transparent 45%,#48838b 45% 55%,transparent 55%);
+}
+.iv-workbench .iv-quotes h3,.iv-workbench .iv-quote-head {font-size:.92rem;line-height:1.35;letter-spacing:.02em;font-weight:700}
+.iv-workbench .iv-budget-sum {font-size:clamp(1.55rem,3.2vw,2.15rem);line-height:1.12;font-weight:700;letter-spacing:-.045em;margin:.32rem 0 .22rem}
+.iv-workbench .iv-quote+.iv-quote {border-left:1px dashed #b0c0ca}
+.iv-workbench .iv-quote-head,.iv-workbench .iv-caption {display:flex;align-items:center;gap:.45rem}
+.iv-workbench .iv-swatch {width:.66rem;height:.66rem;display:inline-block;background:var(--iv-blue)}
+.iv-workbench .iv-vendor-b .iv-swatch {border-radius:50%;background:var(--iv-orange)}
+.iv-workbench .iv-offer {font-size:clamp(1rem,1.8vw,1.15rem);margin:.4rem 0 .16rem}
+.iv-workbench .iv-offer strong {font-weight:700}
+.iv-workbench .iv-fee,.iv-workbench .iv-review-note,.iv-workbench .iv-lab-note {color:var(--iv-muted);font-size:.9rem}
+.iv-workbench .iv-nav {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--iv-rule);margin:1rem 0 0}
+.iv-workbench .iv-tab {
+  display:flex;align-items:center;justify-content:flex-start;gap:.5rem;
+  min-height:3.1rem;border:0;border-bottom:3px solid transparent;border-radius:0;
+  padding:.58rem .42rem;background:transparent;text-align:left;font-weight:640;color:var(--iv-muted);
+}
+.iv-workbench .iv-tab:hover {background:#f2f6f8;color:var(--iv-blue)}
+.iv-workbench .iv-tab[aria-current=step] {border-bottom-color:var(--iv-blue);color:var(--iv-blue)}
+.iv-workbench .iv-tab-index {font:600 .83rem/1.2 ui-monospace,Consolas,monospace;color:#536d7d}
+.iv-workbench .iv-tab-note {font-size:.72rem;font-weight:500;color:var(--iv-mint)}
+.iv-workbench .iv-tab-note:empty {display:none}
+.iv-workbench .iv-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:start;margin:clamp(1.25rem,2.3vw,1.8rem) 0;gap:clamp(1.25rem,3vw,2.7rem)}
+.iv-workbench .iv-task,.iv-workbench .iv-bench {min-width:0}
+.iv-workbench .iv-task-heading {font-size:clamp(1.19rem,1.9vw,1.55rem);font-weight:720;line-height:1.42;letter-spacing:-.018em;text-wrap:pretty}
+.iv-workbench .iv-lead {margin:.46rem 0 1.05rem;color:var(--iv-muted);font-size:1rem}
+.iv-workbench .iv-callout {margin:0 0 .85rem;border-left:3px solid var(--iv-mint);padding:.38rem .75rem;background:#edf6f3;font-weight:650}
+.iv-workbench .iv-fields,.iv-workbench .iv-pair {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem .7rem}
+.iv-workbench .iv-fields>.iv-field:last-child:nth-child(odd) {grid-column:1/-1}
+.iv-workbench .iv-single {grid-template-columns:minmax(0,1fr)}
+.iv-workbench .iv-model-draft {margin-top:.8rem}
+.iv-workbench .iv-field {display:grid;gap:.32rem;min-width:0;margin:0;font-size:.92rem;font-weight:650}
+.iv-workbench .iv-field input,.iv-workbench .iv-field textarea,.iv-workbench .iv-qty-value input {
+  width:100%;max-width:none;min-width:0;border:1px solid #91a6b5;border-radius:3px;
+  background:white;color:var(--iv-ink);font:inherit;font-size:1rem;font-weight:500;
+  min-height:2.65rem;padding:.42rem .65rem;color-scheme:light;
+}
+.iv-workbench .iv-field textarea {resize:vertical;min-height:6rem}
+.iv-workbench .iv-field textarea::placeholder {font-size:.9rem;color:#5f747f;line-height:1.5}
+.iv-workbench .iv-field input:read-only,.iv-workbench .iv-field textarea:read-only {background:#f1f5f6}
+.iv-workbench .iv-review-note {margin-top:.45rem}
+.iv-workbench .iv-task-actions {display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;margin:.95rem 0 .4rem}
+.iv-workbench .iv-check,.iv-workbench .iv-next,.iv-workbench .iv-quiet {min-height:2.55rem;padding:.42rem 1rem;border:1px solid #99b0bd;border-radius:3px;background:white;color:var(--iv-ink);font-weight:650}
+.iv-workbench .iv-check {background:#2054a5;color:#fff;border-color:#2054a5}
+.iv-workbench .iv-check:hover {background:#19458c}
+.iv-workbench .iv-next:hover,.iv-workbench .iv-quiet:hover {background:#eef4f8}
+.iv-workbench .iv-feedback {margin:.8rem 0 0;background:#fbf4e7;border-left:3px solid #b17422;padding:.7rem .85rem;font-size:.94rem;color:#684419}
+.iv-workbench .iv-feedback[hidden] {display:none}
+.iv-workbench .iv-feedback.iv-correct {background:#edf6f3;border-color:#32866d;color:#215c4b}
+.iv-workbench .iv-feedback ul {padding-left:1.1rem;margin:.14rem 0 0}
+.iv-workbench .iv-feedback li+li {margin-top:.24rem}
+.iv-workbench .iv-history,.iv-workbench .iv-openclass {border-top:1px solid var(--iv-rule);margin:1rem 0 0}
+.iv-workbench summary {cursor:pointer}
+.iv-workbench .iv-history summary,.iv-workbench .iv-openclass summary {padding:.65rem 0;color:#22538a;font-weight:650}
+.iv-workbench .iv-history dl {display:grid;grid-template-columns:auto 1fr;gap:.3rem .7rem;font-size:.92rem}
+.iv-workbench .iv-history dd {margin:0;overflow-wrap:anywhere}
+.iv-workbench .iv-openclass-host {min-width:0}
+.iv-workbench .iv-native-jump {border:0;border-radius:0;min-height:2.4rem;padding:.25rem 0;background:transparent;color:#2054a5;text-decoration:underline;text-underline-offset:.2rem}
+.iv-workbench .iv-native-slot .iv-openclass {margin:.65rem 0 0;border:0;border-left:3px solid #638b97;background:#edf3f4}
+.iv-workbench .iv-native-slot summary {padding:.7rem 1rem}
+.iv-workbench .iv-bench {background:#f2f6f6;border:1px solid #c4d3d5;border-top:3px solid #3c6a77;border-radius:2px;padding:.85rem clamp(.85rem,1.6vw,1.25rem) .55rem}
+.iv-workbench .iv-bench-header,.iv-workbench .iv-qty-head {display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.iv-workbench .iv-bench-header h3 {font-size:1.12rem;line-height:1.35}
+.iv-workbench .iv-graph-toggle {display:inline-flex;align-items:stretch;border:1px solid #a0b5be;background:white;border-radius:3px;overflow:hidden}
+.iv-workbench .iv-graph-toggle button {border:0;border-radius:0;background:transparent;color:#486271;padding:.25rem .57rem;min-height:2rem;font-size:.86rem}
+.iv-workbench .iv-graph-toggle button[aria-pressed=true] {background:#d8e7e9;color:#123b4b;font-weight:700}
+.iv-workbench .iv-graph-toggle button:focus-visible {outline-offset:-3px}
+.iv-workbench .iv-figure {margin:.75rem 0 .2rem}
+.iv-workbench .iv-chart-label,.iv-workbench .iv-axis-caption {color:var(--iv-muted);font-size:.87rem}
+.iv-workbench .iv-axis-caption {text-align:right;line-height:1.05}
+.iv-workbench svg {display:block;width:100%;height:auto;overflow:visible}
+.iv-workbench svg text {font-family:ui-monospace,Consolas,monospace;font-size:12px;fill:#425b69}
+.iv-workbench svg line {vector-effect:non-scaling-stroke}
+.iv-workbench .iv-grid {stroke:#c9d5d8;stroke-width:1}
+.iv-workbench .iv-vgrid {stroke-dasharray:2 4;opacity:.75}
+.iv-workbench .iv-axis {stroke:#7c959f;stroke-width:1.3}
+.iv-workbench .iv-cursor {stroke:#6a808c;stroke-width:1.2;stroke-dasharray:4 4}
+.iv-workbench .iv-budget-line {stroke:#6a4283;stroke-width:1.4;stroke-dasharray:7 3 2 3}
+.iv-workbench svg .iv-budget-label {fill:#653570;font-weight:650;paint-order:stroke;stroke:#f2f6f6;stroke-width:3px}
+.iv-workbench .iv-line-a {stroke:var(--iv-blue);stroke-width:3;fill:var(--iv-blue)}
+.iv-workbench .iv-line-b {stroke:var(--iv-orange);stroke-width:2.8;fill:var(--iv-orange);stroke-dasharray:7 4}
+.iv-workbench .iv-line-d {stroke:var(--iv-mint);stroke-width:3;fill:var(--iv-mint)}
+.iv-workbench .iv-point {stroke:white;stroke-dasharray:none;stroke-width:2}
+.iv-workbench .iv-quantity {margin:.55rem 0 .6rem}
+.iv-workbench .iv-qty-head {font-weight:650;font-size:.94rem}
+.iv-workbench .iv-qty-value {display:flex;align-items:center;gap:.33rem;color:var(--iv-muted)}
+.iv-workbench .iv-qty-value input {width:5.5rem;min-height:2.2rem;padding:.2rem .42rem;text-align:right}
+.iv-workbench .iv-range-label {display:block;margin:0;line-height:1}
+.iv-workbench input[type=range] {width:100%;margin:.22rem 0 0;min-height:1.55rem;padding:0;accent-color:var(--iv-mint);cursor:pointer}
+.iv-workbench .iv-presets {display:flex;gap:.5rem;flex-wrap:wrap;margin:.1rem 0 .25rem}
+.iv-workbench .iv-presets button {min-height:2.15rem;background:#fff;border:1px solid #a6bac3;border-radius:3px;padding:.18rem .62rem;color:#315564;font-size:.88rem;font-weight:600}
+.iv-workbench .iv-presets button[hidden] {display:none}
+.iv-workbench .iv-presets button[aria-pressed=true] {border-color:#609991;background:#e1eeea;color:#1a514c}
+.iv-workbench .iv-results {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid #b8cacc;margin-top:.2rem}
+.iv-workbench .iv-result {padding:.65rem 0 .15rem}
+.iv-workbench .iv-caption {font-size:.87rem;color:var(--iv-muted);font-weight:600}
+.iv-workbench .iv-result output {display:block;line-height:1.2;font-size:clamp(1.25rem,2vw,1.5rem);font-weight:700;letter-spacing:-.035em;margin:.18rem 0}
+.iv-workbench .iv-live {font-weight:650;color:var(--iv-mint);font-size:.95rem;margin:.2rem 0 .55rem}
+.iv-workbench .iv-adjustments {border-top:1px solid #bdced3}
+.iv-workbench .iv-adjustments summary {padding:.5rem 0;color:#2b5267;font-size:.91rem;font-weight:600}
+.iv-workbench .iv-adjustments .iv-pair {margin:.6rem 0}
+.iv-workbench .iv-adjustments .iv-quiet {font-size:.9rem;min-height:2.2rem;margin:0 0 .35rem}
+@container (max-width:37rem) {
+  .iv-workbench .iv-columns {grid-template-columns:minmax(0,1fr);gap:1.2rem}
+  .iv-workbench .iv-figure svg {max-height:16rem}
+  .iv-workbench svg text {font-size:16px}
+}
+@media(max-width:50rem) {
+  .iv-workbench .iv-columns {grid-template-columns:minmax(0,1fr);gap:1.25rem}
+  .iv-workbench .iv-figure svg {max-height:16rem}
+}
+@media(max-width:34rem) {
+  .iv-workbench .iv-quotes {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .iv-workbench .iv-quotes .iv-budget {grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.62rem .75rem;border:0;border-bottom:1px solid var(--iv-rule)}
+  .iv-workbench .iv-budget .iv-fee,.iv-budget::after {display:none}
+  .iv-workbench .iv-budget-sum {font-size:1.5rem;margin:0}
+  .iv-workbench .iv-quotes .iv-quote {padding:.7rem .75rem .8rem}
+  .iv-workbench .iv-nav {margin-top:.58rem}
+  .iv-workbench .iv-tab {display:grid;gap:.1rem;align-content:center;line-height:1.35;min-height:3.25rem;padding:.38rem .14rem;font-size:.91rem;text-align:center;justify-content:center}
+  .iv-workbench .iv-tab-index {font-size:.77rem}
+  .iv-workbench .iv-tab-note {display:none}
+  .iv-workbench .iv-filled .iv-tab-index::after {content:" ✓";color:var(--iv-mint)}
+  .iv-workbench .iv-columns {margin:1.05rem 0}
+}

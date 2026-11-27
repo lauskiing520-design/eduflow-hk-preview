@@ -1,0 +1,3 @@
+# Keep the pinned upstream build byte-for-byte, including embedded notices.
+player.*.min.js -text -diff
+player.*.min.css -text -diff

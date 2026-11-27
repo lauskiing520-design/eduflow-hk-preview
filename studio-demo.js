@@ -2,10 +2,11 @@
 (() => {
   'use strict';
   const storage='eduflow:classroom-studio:v1';
-  const rooms=[{id:'a'.repeat(32),name:'中一甲班'},{id:'b'.repeat(32),name:'中一乙班'}];
+  const rooms=[{id:'a'.repeat(32),name:'中一甲班'},{id:'b'.repeat(32),name:'中一乙班'},{id:'c'.repeat(32),name:'中二甲班'}];
   const a0='1'.repeat(32), t0='2'.repeat(32), p0='3'.repeat(32);
   const areaItem='6'.repeat(32), areaPin='7'.repeat(32);
   const lessonItem='8'.repeat(32), lessonPin='9'.repeat(32);
+  const printItem='10'.repeat(16), printPin='11'.repeat(16);
   const activityPath='/api/eduflow/ai/studio/activities', tutorPath='/api/eduflow/ai/studio/tutors';
   const examples={
     match:{kind:'match',title:'辨認移項後的方程',instructions:'把每條方程與正確的第一步配對。',pairs:[
@@ -38,6 +39,11 @@
       s.activities[lessonItem]={id:lessonItem,revision:1,data};
       s.pins[lessonPin]={id:lessonPin,item:lessonItem,room:rooms[0].id,revision:1,active:true,data:clone(data)};
     }
+    if(!s.activities[printItem]){
+      const data=EduInvestigation.create();
+      s.activities[printItem]={id:printItem,revision:1,data};
+      s.pins[printPin]={id:printPin,item:printItem,room:rooms[2].id,revision:1,active:true,data:clone(data)};
+    }
     return s;
   }
   const room=id=>rooms.find(x=>x.id===id);
@@ -51,6 +57,7 @@
     s.rev++;localStorage.setItem(storage,JSON.stringify(s));
   }
   function validate(d){
+    if(d?.kind==='priceInvestigation')return EduInvestigation.validate(d);
     if(!d||!clean(d.title,100)||!clean(d.instructions,600))fail('請填寫活動名稱（最多 100 字）和說明（最多 600 字）。');
     if(d.kind==='app')return EduStudioApp.validate(d);
     if(d.kind==='percentLesson')return EduPercentLesson.validate(d);
@@ -125,11 +132,12 @@
       if(url.searchParams.has('pin')){
         const p=s.pins[url.searchParams.get('pin')];if(!p)fail('找不到派發記錄。',404);
         const r=s.receipts[p.id];
-        const maximum=p.data.kind==='match'?p.data.pairs.length:p.data.kind==='app'?Number(!!p.data.challenge):1;
-        const interactive=['app','percentLesson'].includes(p.data.kind);
+        const maximum=p.data.kind==='match'?p.data.pairs.length:p.data.kind==='app'?Number(!!p.data.challenge):p.data.kind==='priceInvestigation'?8:1;
+        const interactive=['app','percentLesson','priceInvestigation'].includes(p.data.kind);
         return {title:p.data.title,className:room(p.room).name,...(interactive?{data:clone(p.data)}:{}),
           students:[{label:'示例學生 01',submitted:!!r,score:r?.score??null,max:r?.max??maximum,
-            ...(p.data.kind==='app'?{hints:studentHints(s,p.id)}:{}),
+            ...(['app','priceInvestigation'].includes(p.data.kind)?{hints:studentHints(s,p.id)}:{}),
+            ...(p.data.kind==='priceInvestigation'&&r?{id:'demo',review:r.review||null}:{}),
             ...(interactive&&r?{answers:r.answers}:{})}]};
       }
       return {rooms,items:arr(s.activities).map(x=>({id:x.id,title:x.data.title,kind:x.data.kind,revision:x.revision}))};
@@ -152,6 +160,16 @@
       if(b.revision!==old.revision)fail('另一分頁已更新草稿，請重新讀取。',409);
       s.work??={};s.work[key]={revision:old.revision+1,...next};save(s);
       return {draft:s.work[key]};
+    }
+    if(b.action==='review'){
+      const p=s.pins[b.pin],r=p&&s.receipts[p.id],comment=clean(b.comment,600);
+      if(p?.data.kind!=='priceInvestigation'||!r||b.student!=='demo')fail('找不到這份已提交的採購建議。',404);
+      if(!comment)fail('請輸入最多 600 字的回饋。');
+      if(r.review?.comment!==comment){
+        if(b.revision!==(r.review?.revision||0))fail('回饋剛被更新，請重新讀取。',409);
+        r.review={comment,revision:b.revision+1};save(s);
+      }
+      return {review:r.review};
     }
     if(b.action==='unpin'){
       const p=s.pins[b.pin];if(!p)fail('找不到派發記錄。',404);p.active=false;save(s);return {removed:true};
@@ -188,8 +206,10 @@
   function requestHint(s,p,b){
     if(!ident(b.requestId))fail('請重新開啟提示。');
     if(s.receipts[p.id])fail('這份活動已提交，可重看之前的提示。',409);
-    const state=EduStudioApp.answer(p.data,b.answers).answers;
-    const key=JSON.stringify(state);
+    const investigation=p.data.kind==='priceInvestigation';
+    const state=investigation?EduInvestigation.state(b.answers):EduStudioApp.answer(p.data,b.answers).answers;
+    const context=investigation?EduInvestigation.coach(p.data,state):null;
+    const key=JSON.stringify(context??state);
     s.appHints??={};
     const previous=s.appHints[p.id]??=[];
     const retried=previous.find(row=>row.requestId===b.requestId);
@@ -197,7 +217,7 @@
     const priorIndex=previous.findIndex(row=>row.key===key);
     if(priorIndex!==-1){const hints=studentHints(s,p.id);return {hint:hints[priorIndex],hints};}
     if(previous.length>=6)fail('這項活動已使用六個提示，你仍可繼續操作和提交。',429);
-    const {observations,moves}=EduStudioApp.coach(p.data,state);
+    const {observations,moves}=context??EduStudioApp.coach(p.data,state);
     const evidence=observations.map(row=>row.label+'：'+row.text).join(' · ');
     previous.push({key,requestId:b.requestId,text:moves[0].text,evidence,source:'guided'});
     save(s);
@@ -205,17 +225,18 @@
     return {hint:hints[hints.length-1],hints};
   }
   function studentActivity(s,b){
-    const sample=b?.pin==='area-lab'?areaItem:b?.pin==='percent-lesson'?lessonItem:null;
-    const p=sample?arr(s.pins).find(pin=>pin.active&&pin.item===sample&&pin.room===rooms[0].id):s.pins[b?.pin];
+    const sample=b?.pin==='area-lab'?areaItem:b?.pin==='percent-lesson'?lessonItem:b?.pin==='print-lab'?printItem:null;
+    const p=sample?arr(s.pins).find(pin=>pin.active&&pin.item===sample&&pin.room===rooms[sample===printItem?2:0].id):s.pins[b?.pin];
     if(!p?.active)fail('這個活動已收起，請返回課室。',404);
     const d=p.data,data=publicData(d,p.options),empty={revision:0,answers:null};
     s.drafts??={};let draft=s.drafts[p.id]||empty;
-    if(d.kind==='app'||d.kind==='percentLesson'){
-      const lesson=d.kind==='percentLesson';
+    if(['app','percentLesson','priceInvestigation'].includes(d.kind)){
+      const lesson=d.kind==='percentLesson',investigation=d.kind==='priceInvestigation';
       if(b.action==='hint'&&!lesson)return requestHint(s,p,b);
       if(!['read','draft','submit'].includes(b.action))fail('未支援這個操作。');
       if(b.action!=='read'&&!s.receipts[p.id]){
-        const result=lesson?EduPercentLesson.grade(d,b.answers,b.action==='submit'):EduStudioApp.answer(d,b.answers,b.action==='submit');
+        const result=investigation?EduInvestigation.grade(d,EduInvestigation.mergeHistory(d,draft.answers,b.answers),b.action==='submit'):
+          lesson?EduPercentLesson.grade(d,b.answers,b.action==='submit'):EduStudioApp.answer(d,b.answers,b.action==='submit');
         const same=JSON.stringify(draft.answers)===JSON.stringify(result.answers);
         if((b.revision??0)!==draft.revision&&!(b.action==='draft'&&same))fail('進度已在另一分頁更新，請重新讀取。',409);
         if(b.action==='submit'){
@@ -226,7 +247,7 @@
         }
       }
       return {id:p.id,data,receipt:s.receipts[p.id]||null,draft,...(lesson?{}:{hints:studentHints(s,p.id)}),
-        teacherView:'studio.html?class='+encodeURIComponent(p.room)+(lesson?'#lesson/':'#app/')+encodeURIComponent(p.item)};
+        teacherView:'studio.html?class='+encodeURIComponent(p.room)+(investigation?'#investigation/':lesson?'#lesson/':'#app/')+encodeURIComponent(p.item)};
     }
     if(!s.receipts[p.id]&&['submit','draft'].includes(b.action)){
       const a=b.answers,max=d.kind==='match'?d.pairs.length:1;
